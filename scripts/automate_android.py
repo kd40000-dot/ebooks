@@ -37,6 +37,10 @@ def snapshot(label):
         nodes=[]
     labels=[n.get("text") or n.get("content-desc") for n in nodes]
     print(f"[{label}]: "+ " | ".join(x[:90] for x in labels if x)[:7000],flush=True)
+    clickable=[(n.get("resource-id") or n.get("class") or "?")+
+               ":"+(n.get("content-desc") or n.get("text") or "[unlabelled]")+
+               "@"+str(pos(n)) for n in nodes if n.get("clickable")=="true"]
+    print(f"[{label}] CLICKABLE: "+" | ".join(clickable)[:6000],flush=True)
     return nodes
 
 def pos(node):
@@ -100,30 +104,45 @@ def automate():
             continue
         print("Unknown onboarding state, capturing before share",flush=True)
         break
-    # Text share intent may expose native Create Parallel Book path.
-    remote=target+"/vietnamese_hyphenated.txt"
-    cmd=('am start -a android.intent.action.SEND -t text/plain '
-         '-p com.kursx.smartbook --es android.intent.extra.TEXT "$(cat '+remote+')"')
-    print("Share intent:",shell(cmd)[:600],flush=True)
-    time.sleep(8)
-    nodes=snapshot("shared_text")
-    # ACTION_SEND can open Android's "Open a book" resolution dialog.
-    if has(nodes,"just once") and has(nodes,"smart book"):
-        # Android resolver; pick Smart Book's Share handler.
-        if click(nodes,["smart book","open a book"]):
-            nodes=snapshot("share_target_selected")
-        if click(nodes,["just once","always"]):
-            nodes=snapshot("share_activity")
-    for dialog in range(3):
-        if has(nodes,"isn't responding"):
-            if click(nodes,["wait"]):
-                time.sleep(15)
-                nodes=snapshot(f"share_anr_{dialog}")
+    # Prefer the application's own book creator to the ACTION_SEND activity:
+    # the first Android share resolver is "Open a book" and expects a URI.
+    # Direct text sent to that activity returned "No data for loading".
+    if click(nodes,["my books"]):
+        nodes=snapshot("my_books")
+    if click(nodes,["create parallel book","create book","add book","new book","import text","paste text"]):
+        nodes=snapshot("native_book_creator")
+    if not has(nodes,"enter a book name"):
+        if click(nodes,["more options","add","create"]):
+            nodes=snapshot("creation_options")
+    # Still try a text-share intent only if the native creator was not found.
+    if not has(nodes,"enter a book name"):
+        remote=target+"/vietnamese_hyphenated.txt"
+        cmd=('am start -a android.intent.action.SEND -t text/plain '
+             '-p com.kursx.smartbook --es android.intent.extra.TEXT "$(cat '+remote+')"')
+        print("Share intent:",shell(cmd)[:600],flush=True)
+        time.sleep(8)
+        nodes=snapshot("shared_text")
+        # The resolver has two "Smart Book" activities. The first is "Open a
+        # book" (expects a content URI); the second is the text share target.
+        targets=[n for n in nodes if (n.get("text") or "")=="Smart Book" and pos(n)]
+        if has(nodes,"just once") and len(targets)>=2:
+            targets.sort(key=lambda n:pos(n)[1])
+            x,y=pos(targets[-1])
+            run(["shell","input","tap",str(x),str(y)])
+            time.sleep(2)
+            nodes=snapshot("selected_text_share_target")
+            if click(nodes,["just once"]):
+                nodes=snapshot("text_share_activity")
+        for dialog in range(3):
+            if has(nodes,"isn't responding"):
+                if click(nodes,["wait"]):
+                    time.sleep(15)
+                    nodes=snapshot(f"share_anr_{dialog}")
+                    continue
+            if click(nodes,["got it","don't allow","don’t allow"]):
+                nodes=snapshot(f"share_prompt_{dialog}")
                 continue
-        if click(nodes,["got it","don't allow","don’t allow"]):
-            nodes=snapshot(f"share_prompt_{dialog}")
-            continue
-        break
+            break
     # Find the creator in the real app rather than requiring a guessed deep link.
     if click(nodes,["create parallel book","create a parallel book","create book","new book"]):
         nodes=snapshot("book_editor")
