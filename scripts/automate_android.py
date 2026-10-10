@@ -145,6 +145,31 @@ def select_vietnamese(nodes):
     print("Vietnamese not found after search and scrolling",flush=True)
     return snapshot("language_unknown")
 
+def pick_txt_from_documents_ui(nodes,filename,prefix):
+    """Navigate DocumentsUI from Recent/roots to Downloads/ebooks-unicorn."""
+    for step in range(12):
+        if click(nodes,[filename]):
+            print("DOCUMENT_PICKED",filename,flush=True)
+            return snapshot(prefix+"_selected")
+        if click(nodes,["ebooks-unicorn"]):
+            nodes=snapshot(prefix+"_folder_"+str(step))
+            continue
+        # "Recent" may contain no TXT entries even though adb push worked.
+        # Open the explicit Downloads root; do not rely on Recent indexing.
+        if click(nodes,["Downloads"]):
+            nodes=snapshot(prefix+"_downloads_"+str(step))
+            continue
+        if click(nodes,["Internal storage","sdk_gphone"]):
+            nodes=snapshot(prefix+"_internal_"+str(step))
+            continue
+        if click(nodes,["Show roots"]):
+            nodes=snapshot(prefix+"_roots_"+str(step))
+            continue
+        print("DOCUMENTS_UI_NO_NAVIGATION",filename,step,flush=True)
+        return nodes
+    print("DOCUMENTS_UI_MAX_STEPS",filename,flush=True)
+    return nodes
+
 def automate():
     assert SOURCE.exists(),str(SOURCE)
     # The receiver saves original Android shared bytes, never generates SB2.
@@ -267,12 +292,7 @@ def automate():
         # Upload a file. Prefer file picker so UTF-8 Vietnamese is unchanged.
         if click(nodes,["upload a file","upload file","choose a file"]):
             nodes=snapshot("native_source_file_picker")
-            if click(nodes,["downloads","download"]):
-                nodes=snapshot("native_downloads")
-            if click(nodes,["ebooks-unicorn"]):
-                nodes=snapshot("native_unicorn_folder")
-            if click(nodes,["vietnamese_hyphenated.txt","vietnamese_hyphenated"]):
-                nodes=snapshot("native_vietnamese_imported")
+            nodes=pick_txt_from_documents_ui(nodes,"vietnamese_hyphenated.txt","vietnamese_import")
         # The primary file picker has already loaded the TXT chapter.
         # Do not reopen /source: that restarts Android's file chooser.
         if not has(nodes,"vietnamese_hyphenated"):
@@ -299,16 +319,10 @@ def automate():
             print("TRANSLATION_UPLOAD_NOT_FOUND",flush=True)
             return False
         nodes=snapshot("english_translation_file_picker")
-        if not click(nodes,["english.txt"]):
-            # DocumentsUI may initially show another folder, but the paired
-            # files are both in the emulator's Downloads/ebooks-unicorn folder.
-            if click(nodes,["downloads","download"]):
-                nodes=snapshot("translation_picker_downloads")
-            if click(nodes,["ebooks-unicorn"]):
-                nodes=snapshot("translation_picker_story_folder")
-            if not click(nodes,["english.txt"]):
-                print("ENGLISH_TXT_NOT_FOUND_IN_PICKER",flush=True)
-                return False
+        nodes=pick_txt_from_documents_ui(nodes,"english.txt","english_import")
+        if not has(nodes,"english"):
+            print("ENGLISH_TXT_NOT_CONFIRMED",flush=True)
+            return False
         nodes=snapshot("english_translation_imported")
         if not has(nodes,"english"):
             print("ENGLISH_TRANSLATION_NOT_CONFIRMED_IN_EDITOR",flush=True)
