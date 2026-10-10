@@ -64,6 +64,49 @@ def click(nodes, terms):
 def has(nodes,term):
     return any(term.lower() in ((n.get("text") or "")+" "+(n.get("content-desc") or "")).lower() for n in nodes)
 
+def resource(nodes, suffix):
+    for n in nodes:
+        if (n.get("resource-id") or "").endswith(suffix) and pos(n):
+            return n
+    return None
+
+def tap_at(x,y):
+    run(["shell","input","tap",str(x),str(y)])
+    time.sleep(2)
+
+def replace_edittext(nodes, suffix, value):
+    n=resource(nodes,suffix)
+    if n is None or "EditText" not in n.get("class",""):
+        print("FIELD NOT FOUND",suffix,flush=True)
+        return False
+    x,y=pos(n)
+    old=n.get("text") or ""
+    tap_at(x,y)
+    run(["shell","input","keyevent","KEYCODE_MOVE_END"])
+    # Deterministically clear the existing text. Ctrl+A did not work in the
+    # initial experiment and inserted the title into the placeholder.
+    count=min(120,max(35,len(old)+15))
+    run(["shell","input","keyevent"]+["KEYCODE_DEL"]*count)
+    run(["shell","input","text",value.replace(" ","%s")])
+    run(["shell","input","keyevent","KEYCODE_BACK"])
+    return True
+
+def select_vietnamese(nodes):
+    spinners=[n for n in nodes if
+              (n.get("resource-id") or "").endswith("/spinner") and pos(n)]
+    if not spinners: return nodes
+    spinners.sort(key=lambda n:pos(n)[1])
+    x,y=pos(spinners[-1])
+    tap_at(x,y)
+    for i in range(13):
+        page=snapshot(f"language_choices_{i}")
+        if click(page,["Vietnamese"]):
+            return snapshot("vietnamese_selected")
+        run(["shell","input","swipe","360","1360","350","570","350"])
+        time.sleep(1)
+    print("Vietnamese not found in dropdown after scrolling",flush=True)
+    return snapshot("language_unknown")
+
 def automate():
     assert SOURCE.exists(),str(SOURCE)
     target="/sdcard/Download/ebooks-unicorn"
@@ -165,29 +208,27 @@ def automate():
         if click(nodes,["create parallel book","create a book","new book","add book","import text file","create book"]):
             nodes=snapshot("creation_from_library")
     if has(nodes,"enter a book name"):
-        edits=[n for n in nodes if "EditText" in n.get("class","") and pos(n)]
-        edits.sort(key=lambda n:pos(n)[1])
-        if edits:
-            x,y=pos(edits[0])
-            run(["shell","input","tap",str(x),str(y)])
-            run(["shell","input","keyevent","KEYCODE_CTRL_LEFT","KEYCODE_A"],check=False)
-            run(["shell","input","text","I_Found_a_Unicorn"])
-            run(["shell","input","keyevent","KEYCODE_BACK"])
+        replace_edittext(nodes,"/name","I_Found_a_Unicorn")
         nodes=snapshot("named_book")
         if click(nodes,["end of sentence","paragraph separator"]):
             nodes=snapshot("separator_menu")
-            if click(nodes,["empty line","blank line","empty string"]):
+            # Smart Book calls the blank-line paragraph separator "Empty string".
+            if click(nodes,["empty string"]):
                 nodes=snapshot("separator_set")
-        if click(nodes,["upload a file"]):
-            nodes=snapshot("file_picker")
-            if click(nodes,["ebooks-unicorn"]):
-                nodes=snapshot("selected_folder")
-            if click(nodes,["vietnamese_hyphenated.txt"]):
-                nodes=snapshot("primary_imported")
-        if click(nodes,["chapter 1"]):
-            nodes=snapshot("chapter_editor")
-            if click(nodes,["translation","add language","english"]):
-                nodes=snapshot("translation_editor")
+        nodes=select_vietnamese(nodes)
+        if resource(nodes,"/chapter"):
+            replace_edittext(nodes,"/chapter","Chapter 1")
+            nodes=snapshot("chapter_named")
+        # The text supplied through Android's Share activity is already staged
+        # by Smart Book for this editor. A successful save verifies that fact.
+        if click(nodes,["save"]):
+            nodes=snapshot("saved_book")
+            if click(nodes,["share","export","more options","menu"]):
+                nodes=snapshot("book_export_options")
+            if click(nodes,["export book","export","share book","save to device"]):
+                nodes=snapshot("export_destination")
+        else:
+            print("SAVE BUTTON NOT FOUND",flush=True)
     print("Finished current automatic navigation; searching for real exports.",flush=True)
     exported=shell("find /sdcard/Download /sdcard/Documents -type f -iname '*.sb2' 2>/dev/null")
     found=0
