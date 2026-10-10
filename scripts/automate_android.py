@@ -66,24 +66,30 @@ def automate():
     shell(f"mkdir -p {target}")
     for filename in ["vietnamese_hyphenated.txt","english.txt"]:
         run(["push",str(ROOT/"books"/"unicorn"/filename),target+"/"+filename])
+    shell("pm grant com.kursx.smartbook android.permission.POST_NOTIFICATIONS")
     run(["shell","monkey","-p","com.kursx.smartbook","-c","android.intent.category.LAUNCHER","1"])
     time.sleep(10)
     nodes=snapshot("launched")
-    # Fresh installs launch a multi-page welcome wizard; advance the
-    # visible Continue button at the bottom, capturing each step.
-    for page in range(4):
+    # First launch on API 33 may show Android immersive-mode or permissions prompts.
+    # Complete every welcome page before attempting to share text.
+    for page in range(9):
+        if click(nodes,["got it"]):
+            nodes=snapshot(f"immersive_{page + 1}")
+            continue
+        if has(nodes,"notifications?") or has(nodes,"send you notifications"):
+            if click(nodes,["don't allow","don’t allow","allow"]):
+                nodes=snapshot(f"notifications_{page + 1}")
+                continue
         if click(nodes,["continue","next","get started","start reading"]):
             nodes=snapshot(f"onboarding_{page + 1}")
             continue
-        # On some Android images uiautomator cannot dump the Compose UI.
-        # Only use coordinate fallback when the known welcome screen is first.
         if page==0 and not nodes:
-            print("Trying bottom-center Continue on fresh-install welcome screen")
+            print("Trying bottom-center Continue on unlabelled splash screen")
             run(["shell","input","tap","416","1648"])
             time.sleep(4)
-            nodes=snapshot("onboarding_1")
-        else:
-            break
+            nodes=snapshot("onboarding_fallback")
+            continue
+        break
     # Text share intent may expose native Create Parallel Book path.
     remote=target+"/vietnamese_hyphenated.txt"
     cmd=('am start -a android.intent.action.SEND -t text/plain '
@@ -91,11 +97,25 @@ def automate():
     print("Share intent:",shell(cmd)[:600],flush=True)
     time.sleep(8)
     nodes=snapshot("shared_text")
-    if click(nodes,["create parallel book","create a parallel book","create book"]):
+    # ACTION_SEND can open Android's "Open a book" resolution dialog.
+    if has(nodes,"just once") and has(nodes,"smart book"):
+        if click(nodes,["open a book","smart book"]):
+            nodes=snapshot("share_target_selected")
+        if click(nodes,["just once","always"]):
+            nodes=snapshot("share_activity")
+    # Find the creator in the real app rather than requiring a guessed deep link.
+    if click(nodes,["create parallel book","create a parallel book","create book","new book"]):
         nodes=snapshot("book_editor")
     if not has(nodes,"enter a book name"):
-        if click(nodes,["add book","import text file","new book"]):
-            nodes=snapshot("navigation")
+        if click(nodes,["main"]):
+            nodes=snapshot("main_tab")
+        if click(nodes,["create parallel book","create a book","new book","add book","import text file","create book"]):
+            nodes=snapshot("creation_navigation")
+    if not has(nodes,"enter a book name"):
+        if click(nodes,["library","my books"]):
+            nodes=snapshot("library_tab")
+        if click(nodes,["create parallel book","create a book","new book","add book","import text file","create book"]):
+            nodes=snapshot("creation_from_library")
     if has(nodes,"enter a book name"):
         edits=[n for n in nodes if "EditText" in n.get("class","") and pos(n)]
         edits.sort(key=lambda n:pos(n)[1])
