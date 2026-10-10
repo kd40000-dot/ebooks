@@ -277,6 +277,41 @@ def automate():
             print("PRIMARY_CHAPTER_NOT_PRESENT: abort before Save",flush=True)
             return False
         print("PRIMARY_CHAPTER_PRESENT",flush=True)
+        # User-confirmed native workflow (Fairphone / LineageOS):
+        # Vietnamese chapter's 3-dot menu → Translation → Upload a file →
+        # english.txt. The English file must be added BEFORE Save/Export.
+        # Use the actual resource ID /menu rather than guessing coordinates.
+        chapter_menu=resource(nodes,"/menu")
+        if chapter_menu is None or pos(chapter_menu) is None:
+            print("CHAPTER_MENU_NOT_FOUND: cannot attach English",flush=True)
+            return False
+        x,y=pos(chapter_menu)
+        print("CHAPTER_THREE_DOT_MENU",x,y,flush=True)
+        tap_at(x,y)
+        nodes=snapshot("chapter_three_dot_actions")
+        if not click(nodes,["translation"]):
+            print("TRANSLATION_ACTION_NOT_FOUND",flush=True)
+            return False
+        nodes=snapshot("chapter_translation_controls")
+        if not click(nodes,["upload a file","upload file"]):
+            print("TRANSLATION_UPLOAD_NOT_FOUND",flush=True)
+            return False
+        nodes=snapshot("english_translation_file_picker")
+        if not click(nodes,["english.txt"]):
+            # DocumentsUI may initially show another folder, but the paired
+            # files are both in the emulator's Downloads/ebooks-unicorn folder.
+            if click(nodes,["downloads","download"]):
+                nodes=snapshot("translation_picker_downloads")
+            if click(nodes,["ebooks-unicorn"]):
+                nodes=snapshot("translation_picker_story_folder")
+            if not click(nodes,["english.txt"]):
+                print("ENGLISH_TXT_NOT_FOUND_IN_PICKER",flush=True)
+                return False
+        nodes=snapshot("english_translation_imported")
+        if not has(nodes,"english"):
+            print("ENGLISH_TRANSLATION_NOT_CONFIRMED_IN_EDITOR",flush=True)
+            return False
+        print("ENGLISH_TRANSLATION_ATTACHED_BEFORE_SAVE",flush=True)
         # Save now opens the NATIVE BOOK READER (verified by last-run PNG).
         # Last run's uiautomator XML was stale and misleading, not Save failure.
         if click(nodes,["save"]):
