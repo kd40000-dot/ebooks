@@ -78,10 +78,15 @@ def automate():
     # Prefer UIAutomator controls over screen coordinates, and re-snapshot
     # after every change instead of sending the book to an unready app.
     ready=False
-    for page in range(17):
+    anr_count=0
+    for page in range(12):
         if has(nodes,"system ui isn't responding") or has(nodes,"isn't responding"):
+            anr_count+=1
+            if anr_count>=3:
+                print("SYSTEM_UI_ANR_UNRECOVERABLE: aborting rather than retrying forever",flush=True)
+                return False
             if click(nodes,["wait"]):
-                time.sleep(15)
+                time.sleep(10)
                 nodes=snapshot(f"system_recovery_{page}")
                 continue
         if click(nodes,["got it","don't allow","don’t allow"]):
@@ -104,9 +109,12 @@ def automate():
             continue
         print("Unknown onboarding state, capturing before share",flush=True)
         break
-    # Prefer the application's own book creator to the ACTION_SEND activity:
-    # the first Android share resolver is "Open a book" and expects a URI.
-    # Direct text sent to that activity returned "No data for loading".
+    if not ready:
+        print("APP_HOME_NOT_READY: skipping share fallback",flush=True)
+        return False
+    # Open the native library rather than sharing text to the URI-only reader.
+    if click(nodes,["library"]):
+        nodes=snapshot("library_home")
     if click(nodes,["my books"]):
         nodes=snapshot("my_books")
     if click(nodes,["create parallel book","create book","add book","new book","import text","paste text"]):
