@@ -145,30 +145,34 @@ def select_vietnamese(nodes):
     print("Vietnamese not found after search and scrolling",flush=True)
     return snapshot("language_unknown")
 
-def pick_txt_from_documents_ui(nodes,filename,prefix):
-    """Navigate DocumentsUI from Recent/roots to Downloads/ebooks-unicorn."""
-    for step in range(12):
-        if click(nodes,[filename]):
-            print("DOCUMENT_PICKED",filename,flush=True)
-            return snapshot(prefix+"_selected")
-        if click(nodes,["ebooks-unicorn"]):
-            nodes=snapshot(prefix+"_folder_"+str(step))
-            continue
-        # "Recent" may contain no TXT entries even though adb push worked.
-        # Open the explicit Downloads root; do not rely on Recent indexing.
-        if click(nodes,["Downloads"]):
-            nodes=snapshot(prefix+"_downloads_"+str(step))
-            continue
-        if click(nodes,["Internal storage","sdk_gphone"]):
-            nodes=snapshot(prefix+"_internal_"+str(step))
-            continue
-        if click(nodes,["Show roots"]):
-            nodes=snapshot(prefix+"_roots_"+str(step))
-            continue
-        print("DOCUMENTS_UI_NO_NAVIGATION",filename,step,flush=True)
+def pick_txt_from_documents_ui(nodes, filename, prefix):
+    """Use the device filesystem provider, not the indexed Downloads shortcut."""
+    if click(nodes,[filename]):
+        return snapshot(prefix+"_selected_recent")
+    # Android DocumentsUI distinguishes its indexed 'Downloads' root from the
+    # physical device-storage root. adb-pushed files may be absent in indexed
+    # Downloads but present at /sdcard/Download.
+    if not click(nodes,["Show roots"]):
+        print("PICKER_ROOTS_UNAVAILABLE",flush=True)
         return nodes
-    print("DOCUMENTS_UI_MAX_STEPS",filename,flush=True)
-    return nodes
+    nodes=snapshot(prefix+"_roots")
+    if not click(nodes,["Android SDK built for x86_64","Internal storage","Internal shared storage","sdk_gphone"]):
+        print("PHYSICAL_STORAGE_ROOT_NOT_FOUND",flush=True)
+        return nodes
+    nodes=snapshot(prefix+"_device_storage")
+    if not click(nodes,["Download"]):
+        print("PHYSICAL_DOWNLOAD_FOLDER_NOT_FOUND",flush=True)
+        return nodes
+    nodes=snapshot(prefix+"_physical_download")
+    if not click(nodes,["ebooks-unicorn"]):
+        print("STAGED_FOLDER_NOT_FOUND_IN_DEVICE_STORAGE",flush=True)
+        return nodes
+    nodes=snapshot(prefix+"_physical_folder")
+    if not click(nodes,[filename]):
+        print("STAGED_FILENAME_NOT_FOUND_IN_DEVICE_STORAGE",filename,flush=True)
+        return nodes
+    print("DOCUMENT_PICKED_FROM_PHYSICAL_STORAGE",filename,flush=True)
+    return snapshot(prefix+"_selected")
 
 def automate():
     assert SOURCE.exists(),str(SOURCE)
@@ -178,6 +182,9 @@ def automate():
     shell(f"mkdir -p {target}")
     for filename in ["vietnamese_hyphenated.txt","english.txt"]:
         run(["push",str(ROOT/"books"/"unicorn"/filename),target+"/"+filename])
+        # Some AOSP DocumentsUI instances rely on MediaStore indexing.
+        shell('am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "file://'+target+'/'+filename+'"')
+    print("STAGED_FILE_LISTING",shell("ls -la "+target),flush=True)
     shell("pm grant com.kursx.smartbook android.permission.POST_NOTIFICATIONS")
     run(["shell","monkey","-p","com.kursx.smartbook","-c","android.intent.category.LAUNCHER","1"])
     time.sleep(22)
