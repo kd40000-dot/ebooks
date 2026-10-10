@@ -264,20 +264,12 @@ def automate():
                 nodes=snapshot("native_unicorn_folder")
             if click(nodes,["vietnamese_hyphenated.txt","vietnamese_hyphenated"]):
                 nodes=snapshot("native_vietnamese_imported")
-        # Chapter source icon may open further editing options.
-        source_button=resource(nodes,"/source")
-        if source_button is not None and pos(source_button):
-            x,y=pos(source_button)
-            tap_at(x,y)
-            nodes=snapshot("chapter_source_options")
-            if click(nodes,["upload a file","select file","choose file","upload file","file"]):
-                nodes=snapshot("chapter_file_picker")
-                if click(nodes,["downloads","download"]):
-                    nodes=snapshot("picker_download")
-                if click(nodes,["ebooks-unicorn"]):
-                    nodes=snapshot("picker_story_folder")
-                if click(nodes,["vietnamese_hyphenated.txt","vietnamese_hyphenated"]):
-                    nodes=snapshot("primary_chapter_loaded")
+        # The primary file picker has already loaded the TXT chapter.
+        # Do not reopen /source: that restarts Android's file chooser.
+        if not has(nodes,"vietnamese_hyphenated"):
+            print("PRIMARY_CHAPTER_NOT_PRESENT: abort before Save",flush=True)
+            return False
+        print("PRIMARY_CHAPTER_PRESENT",flush=True)
         # Save only if the editor is present; verify actual book contents later.
         if click(nodes,["save"]):
             nodes=snapshot("saved_book")
