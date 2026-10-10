@@ -54,6 +54,7 @@ def pos(node):
     m=re.search(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",node.get("bounds",""))
     if not m:return None
     a,b,c,d=map(int,m.groups())
+    if c<=a or d<=b:return None
     return ((a+c)//2,(b+d)//2)
 
 def click(nodes, terms):
@@ -403,15 +404,31 @@ def automate():
                 shell("logcat -c")
                 tap_at(*pos(native_share))
                 nodes=snapshot("saved_book_native_share")
-                for share_step in range(4):
+                # Installed test receiver is typically not one of Android
+                # Sharesheet's four suggested targets. The "Apps list" XML
+                # nodes may have zero-sized bounds; tapping them just taps
+                # (0,0). Expand the sheet with a gesture instead.
+                print("SHARE_RECEIVER_RESOLUTION",
+                      shell("cmd package query-activities -a android.intent.action.SEND -t application/zip"),
+                      flush=True)
+                target_chosen=False
+                for share_step in range(7):
                     if click(nodes,["Save SB2 locally"]):
                         nodes=snapshot("native_share_receiver_activated")
+                        target_chosen=True
                         break
-                    if click(nodes,["More apps","See all","Apps"]):
-                        nodes=snapshot(f"native_share_expanded_{share_step}")
-                        continue
-                    print("NATIVE_SHARE_RECEIVER_NOT_VISIBLE",flush=True)
-                    break
+                    print("EXPAND_SHARE_SHEET_UPWARD",share_step,flush=True)
+                    run(["shell","input","swipe","420","1540","420","460","500"])
+                    time.sleep(2)
+                    nodes=snapshot(f"native_share_expanded_{share_step}")
+                if not target_chosen:
+                    # ADB supports launching our explicit receiver, but a
+                    # separate content URI is still needed. Capture the chooser
+                    # state and ActivityManager intent so the missing match can
+                    # be diagnosed without reporting false success.
+                    print("NATIVE_SHARE_RECEIVER_NOT_VISIBLE_AFTER_SWIPES",flush=True)
+                    (D/"resolver_activity.txt").write_text(
+                        shell("dumpsys activity top | tail -180"),encoding="utf-8")
                 (D/"native_share_logcat.txt").write_text(
                     shell("logcat -d -s SMARTBOOK_SINK:I ActivityTaskManager:I AndroidRuntime:E"),
                     encoding="utf-8")
