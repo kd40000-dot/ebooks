@@ -24,7 +24,8 @@ def snapshot(label):
     STEP+=1
     stem=D/(f"{STEP:02d}_"+label)
     (stem.with_suffix(".png")).write_bytes(run(["exec-out","screencap","-p"],binary=True))
-    shell("uiautomator dump /sdcard/ui.xml >/dev/null 2>&1")
+    dump=run(["shell","uiautomator","dump","/sdcard/ui.xml"],check=False)
+    print("UI dump:",dump[:400],flush=True)
     raw=run(["exec-out","cat","/sdcard/ui.xml"],check=False)
     stem.with_suffix(".xml").write_text(raw,encoding="utf-8")
     try:
@@ -65,6 +66,21 @@ def automate():
     run(["shell","monkey","-p","com.kursx.smartbook","-c","android.intent.category.LAUNCHER","1"])
     time.sleep(10)
     nodes=snapshot("launched")
+    # Fresh installs launch a multi-page welcome wizard; advance the
+    # visible Continue button at the bottom, capturing each step.
+    for page in range(4):
+        if click(nodes,["continue","next","get started","start reading"]):
+            nodes=snapshot(f"onboarding_{page + 1}")
+            continue
+        # On some Android images uiautomator cannot dump the Compose UI.
+        # Only use coordinate fallback when the known welcome screen is first.
+        if page==0 and not nodes:
+            print("Trying bottom-center Continue on fresh-install welcome screen")
+            run(["shell","input","tap","416","1648"])
+            time.sleep(4)
+            nodes=snapshot("onboarding_1")
+        else:
+            break
     # Text share intent may expose native Create Parallel Book path.
     remote=target+"/vietnamese_hyphenated.txt"
     cmd=('am start -a android.intent.action.SEND -t text/plain '
@@ -106,7 +122,8 @@ def automate():
     found=0
     for remote in exported.splitlines():
         remote=remote.strip()
-        if not remote:continue
+        if not remote.lower().endswith(".sb2") or not remote.startswith("/sdcard/"):
+            continue
         local=O/Path(remote).name
         run(["pull",remote,str(local)])
         with zipfile.ZipFile(local) as z:
