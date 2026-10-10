@@ -27,9 +27,16 @@ def snapshot(label):
     STEP+=1
     stem=D/(f"{STEP:02d}_"+label)
     (stem.with_suffix(".png")).write_bytes(run(["exec-out","screencap","-p"],binary=True))
+    # Remove previous dump before every capture. Android uiautomator can
+    # return an empty error, leaving an old XML file from the creator screen.
+    # That previously hid a SUCCESSFUL Save to the real reader.
+    shell("rm -f /sdcard/ui.xml")
     dump=run(["shell","uiautomator","dump","/sdcard/ui.xml"],check=False)
     print("UI dump:",dump[:400],flush=True)
     raw=run(["exec-out","cat","/sdcard/ui.xml"],check=False)
+    if "<hierarchy" not in raw:
+        print("UI_DUMP_UNAVAILABLE (not reusing stale content)",flush=True)
+        raw=""
     stem.with_suffix(".xml").write_text(raw,encoding="utf-8")
     try:
         nodes=list(ET.fromstring(raw).iter("node"))
@@ -270,13 +277,25 @@ def automate():
             print("PRIMARY_CHAPTER_NOT_PRESENT: abort before Save",flush=True)
             return False
         print("PRIMARY_CHAPTER_PRESENT",flush=True)
-        # Save only if the editor is present; verify actual book contents later.
+        # Save now opens the NATIVE BOOK READER (verified by last-run PNG).
+        # Last run's uiautomator XML was stale and misleading, not Save failure.
         if click(nodes,["save"]):
-            nodes=snapshot("saved_book")
-            if click(nodes,["share","export","more options","menu"]):
-                nodes=snapshot("book_export_options")
-            if click(nodes,["export book","export","share book","save to device"]):
-                nodes=snapshot("export_destination")
+            time.sleep(7)
+            nodes=snapshot("reader_after_save")
+            print("SAVE_TAPPED_READER_SCREENSHOT_CAPTURES_BOOK",flush=True)
+            # Reader hamburger observed at (778, 109) on 832x1843 emulator.
+            # Take a separate screenshot after opening, to discover Export/Share.
+            tap_at(778,109)
+            nodes=snapshot("reader_hamburger_menu")
+            if click(nodes,["share book","export book","export","share","download book","save to file"]):
+                nodes=snapshot("native_export_or_share")
+            elif click(nodes,["book information","book info","settings","more","edit book"]):
+                nodes=snapshot("book_menu_submenu")
+            # Also capture current activity + file paths to distinguish a reader
+            # from the creator and understand where native exports are written.
+            (D/"activity_dump.txt").write_text(
+                shell("dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity'"),
+                encoding="utf-8")
         else:
             print("SAVE BUTTON NOT FOUND",flush=True)
     print("Finished current automatic navigation; searching for real exports.",flush=True)
