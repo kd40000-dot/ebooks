@@ -101,7 +101,7 @@ def select_vietnamese(nodes):
     page=snapshot("language_picker")
     # The KursX picker has a com.kursx.smartbook:id/edit search field.
     field=resource(page,"/edit")
-    if field and pos(field):
+    if field is not None and pos(field):
         x,y=pos(field)
         tap_at(x,y)
         run(["shell","input","text","Vietnamese"])
@@ -236,13 +236,13 @@ def automate():
             if click(nodes,["empty string"]):
                 nodes=snapshot("separator_set")
         nodes=select_vietnamese(nodes)
-        if resource(nodes,"/chapter"):
+        if resource(nodes,"/chapter") is not None:
             replace_edittext(nodes,"/chapter","Chapter 1")
             nodes=snapshot("chapter_named")
         # Chapter source button opens local text entry/upload options. Inspect
         # it before attempting Save; the shared-intent may leave chapter blank.
         source_button=resource(nodes,"/source")
-        if source_button and pos(source_button):
+        if source_button is not None and pos(source_button):
             x,y=pos(source_button)
             tap_at(x,y)
             nodes=snapshot("chapter_source_options")
