@@ -68,27 +68,37 @@ def automate():
         run(["push",str(ROOT/"books"/"unicorn"/filename),target+"/"+filename])
     shell("pm grant com.kursx.smartbook android.permission.POST_NOTIFICATIONS")
     run(["shell","monkey","-p","com.kursx.smartbook","-c","android.intent.category.LAUNCHER","1"])
-    time.sleep(10)
+    time.sleep(22)
     nodes=snapshot("launched")
-    # First launch on API 33 may show Android immersive-mode or permissions prompts.
-    # Complete every welcome page before attempting to share text.
-    for page in range(9):
-        if click(nodes,["got it"]):
-            nodes=snapshot(f"immersive_{page + 1}")
+    # Handle system first-run windows, onboarding and occasional ANRs.
+    # Prefer UIAutomator controls over screen coordinates, and re-snapshot
+    # after every change instead of sending the book to an unready app.
+    ready=False
+    for page in range(17):
+        if has(nodes,"system ui isn't responding") or has(nodes,"isn't responding"):
+            if click(nodes,["wait"]):
+                time.sleep(15)
+                nodes=snapshot(f"system_recovery_{page}")
+                continue
+        if click(nodes,["got it","don't allow","don’t allow"]):
+            nodes=snapshot(f"system_prompt_{page}")
             continue
         if has(nodes,"notifications?") or has(nodes,"send you notifications"):
-            if click(nodes,["don't allow","don’t allow","allow"]):
-                nodes=snapshot(f"notifications_{page + 1}")
+            if click(nodes,["allow"]):
+                nodes=snapshot(f"notification_{page}")
                 continue
-        if click(nodes,["continue","next","get started","start reading"]):
-            nodes=snapshot(f"onboarding_{page + 1}")
+        if click(nodes,["continue","get started","start reading","next"]):
+            nodes=snapshot(f"onboarding_{page}")
             continue
-        if page==0 and not nodes:
-            print("Trying bottom-center Continue on unlabelled splash screen")
-            run(["shell","input","tap","416","1648"])
-            time.sleep(4)
-            nodes=snapshot("onboarding_fallback")
+        if has(nodes,"library") or has(nodes,"my books") or has(nodes,"create book"):
+            ready=True
+            print("APP_HOME_READY",flush=True)
+            break
+        if not nodes and page<3:
+            time.sleep(8)
+            nodes=snapshot(f"wait_for_home_{page}")
             continue
+        print("Unknown onboarding state, capturing before share",flush=True)
         break
     # Text share intent may expose native Create Parallel Book path.
     remote=target+"/vietnamese_hyphenated.txt"
@@ -99,10 +109,21 @@ def automate():
     nodes=snapshot("shared_text")
     # ACTION_SEND can open Android's "Open a book" resolution dialog.
     if has(nodes,"just once") and has(nodes,"smart book"):
-        if click(nodes,["open a book","smart book"]):
+        # Android resolver; pick Smart Book's Share handler.
+        if click(nodes,["smart book","open a book"]):
             nodes=snapshot("share_target_selected")
         if click(nodes,["just once","always"]):
             nodes=snapshot("share_activity")
+    for dialog in range(3):
+        if has(nodes,"isn't responding"):
+            if click(nodes,["wait"]):
+                time.sleep(15)
+                nodes=snapshot(f"share_anr_{dialog}")
+                continue
+        if click(nodes,["got it","don't allow","don’t allow"]):
+            nodes=snapshot(f"share_prompt_{dialog}")
+            continue
+        break
     # Find the creator in the real app rather than requiring a guessed deep link.
     if click(nodes,["create parallel book","create a parallel book","create book","new book"]):
         nodes=snapshot("book_editor")
