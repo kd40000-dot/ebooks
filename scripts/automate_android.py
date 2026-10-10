@@ -327,13 +327,14 @@ def automate():
             return False
         nodes=snapshot("english_translation_file_picker")
         nodes=pick_txt_from_documents_ui(nodes,"english.txt","english_import")
-        if not has(nodes,"english"):
-            print("ENGLISH_TXT_NOT_CONFIRMED",flush=True)
+        # Smart Book does not expose the target filename as accessibility
+        # text. Instead, the editor creates an explicit /target control
+        # only after the translation file was selected.
+        if resource(nodes,"/target") is None:
+            print("ENGLISH_TRANSLATION_TARGET_NOT_CREATED",flush=True)
             return False
+        print("ENGLISH_TRANSLATION_TARGET_PRESENT",flush=True)
         nodes=snapshot("english_translation_imported")
-        if not has(nodes,"english"):
-            print("ENGLISH_TRANSLATION_NOT_CONFIRMED_IN_EDITOR",flush=True)
-            return False
         print("ENGLISH_TRANSLATION_ATTACHED_BEFORE_SAVE",flush=True)
         # Save now opens the NATIVE BOOK READER (verified by last-run PNG).
         # Last run's uiautomator XML was stale and misleading, not Save failure.
