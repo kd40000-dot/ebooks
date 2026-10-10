@@ -98,13 +98,33 @@ def select_vietnamese(nodes):
     spinners.sort(key=lambda n:pos(n)[1])
     x,y=pos(spinners[-1])
     tap_at(x,y)
-    for i in range(13):
-        page=snapshot(f"language_choices_{i}")
+    page=snapshot("language_picker")
+    # The KursX picker has a com.kursx.smartbook:id/edit search field.
+    field=resource(page,"/edit")
+    if field and pos(field):
+        x,y=pos(field)
+        tap_at(x,y)
+        run(["shell","input","text","Vietnamese"])
+        time.sleep(2)
+        run(["shell","input","keyevent","KEYCODE_BACK"])
+        page=snapshot("language_filtered")
         if click(page,["Vietnamese"]):
             return snapshot("vietnamese_selected")
-        run(["shell","input","swipe","360","1360","350","570","350"])
-        time.sleep(1)
-    print("Vietnamese not found in dropdown after scrolling",flush=True)
+    # Backup: scroll alphabetically past V. 13 swipes previously only reached K.
+    for i in range(35):
+        if click(page,["Vietnamese"]):
+            return snapshot("vietnamese_selected")
+        run(["shell","input","swipe","360","1450","350","350","150"])
+        time.sleep(0.3)
+        if i%4==3:
+            page=snapshot(f"language_scroll_{i}")
+        else:
+            # A fast XML-only dump reduces time pressure from emulator limits.
+            run(["shell","uiautomator","dump","/sdcard/ui.xml"],check=False)
+            raw=run(["exec-out","cat","/sdcard/ui.xml"],check=False)
+            try:page=list(ET.fromstring(raw).iter("node"))
+            except ET.ParseError:page=[]
+    print("Vietnamese not found after search and scrolling",flush=True)
     return snapshot("language_unknown")
 
 def automate():
@@ -219,8 +239,22 @@ def automate():
         if resource(nodes,"/chapter"):
             replace_edittext(nodes,"/chapter","Chapter 1")
             nodes=snapshot("chapter_named")
-        # The text supplied through Android's Share activity is already staged
-        # by Smart Book for this editor. A successful save verifies that fact.
+        # Chapter source button opens local text entry/upload options. Inspect
+        # it before attempting Save; the shared-intent may leave chapter blank.
+        source_button=resource(nodes,"/source")
+        if source_button and pos(source_button):
+            x,y=pos(source_button)
+            tap_at(x,y)
+            nodes=snapshot("chapter_source_options")
+            if click(nodes,["upload a file","select file","choose file","upload file","file"]):
+                nodes=snapshot("chapter_file_picker")
+                if click(nodes,["downloads","download"]):
+                    nodes=snapshot("picker_download")
+                if click(nodes,["ebooks-unicorn"]):
+                    nodes=snapshot("picker_story_folder")
+                if click(nodes,["vietnamese_hyphenated.txt","vietnamese_hyphenated"]):
+                    nodes=snapshot("primary_chapter_loaded")
+        # Save only if the editor is present; verify actual book contents later.
         if click(nodes,["save"]):
             nodes=snapshot("saved_book")
             if click(nodes,["share","export","more options","menu"]):
