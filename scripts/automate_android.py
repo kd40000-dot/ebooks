@@ -17,7 +17,10 @@ def run(args, check=True, binary=False):
     return p.stdout
 
 def shell(command):
-    return run(["shell","sh","-c",command],check=False)
+    # ADB shell executes its final argument as a complete shell command.
+    # Do not use "sh -c" with separate unquoted tokens: Android otherwise
+    # executes only the first word (for example, `am` with no arguments).
+    return run(["shell",command],check=False)
 
 def snapshot(label):
     global STEP
