@@ -1,0 +1,38 @@
+name: Report Smart Book emulator result
+
+on:
+  workflow_run:
+    workflows:
+      - Smart Book native Android export experiment
+    types:
+      - completed
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post actual run result to tracking issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const message = [
+              "Automatic Android Smart Book experiment finished.",
+              "",
+              "Run: " + run.html_url,
+              "Outcome: **" + run.conclusion + "**",
+              "",
+              "If the export succeeded, look for the smartbook-android-evidence artifact on the run page.",
+              "If it failed, the same artifact contains screenshots, UI XML, and logs to diagnose the failure.",
+              "A ZIP-shaped archive alone does not prove Smart Book compatibility; only an app-produced SB2 is treated as a generation success."
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 1,
+              body: message
+            });
