@@ -300,10 +300,33 @@ def automate():
                         continue
                 if click(nodes,["share book","export book","export","share","send book","save to file"]):
                     nodes=snapshot("native_export_or_share")
-                elif click(nodes,["book information","book info","settings","more","edit book"]):
-                    nodes=snapshot("book_menu_submenu")
+                else:
+                    # Exact Android resource ID: the previous broad word
+                    # "settings" accidentally opened *Quick settings*.
+                    book_settings=resource(nodes,"/book_settings")
+                    if book_settings is not None and pos(book_settings):
+                        x,y=pos(book_settings)
+                        print("CLICK_EXACT_BOOK_SETTINGS",x,y,flush=True)
+                        tap_at(x,y)
+                        nodes=snapshot("book_settings_actual")
+                        if click(nodes,["export book","share book","export","share","save to file","book translation","edit book"]):
+                            nodes=snapshot("book_settings_export_or_edit")
+                    else:
+                        print("BOOK_SETTINGS_RESOURCE_NOT_VISIBLE",flush=True)
                 break
             print("READER_MENU_PROBED",flush=True)
+            # If export isn't visible here, return to the Library and inspect
+            # the saved book's management actions; this is a discovery capture.
+            run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
+            time.sleep(2)
+            nodes=snapshot("after_book_settings_back")
+            run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
+            time.sleep(2)
+            nodes=snapshot("after_reader_back")
+            if has(nodes,"I_Found_a_Unicorn"):
+                print("BOOK_SHOWN_IN_LIBRARY_OR_READER",flush=True)
+            if click(nodes,["I_Found_a_Unicorn","Vietnamese_hyphenated"]):
+                nodes=snapshot("library_book_selected")
             # Also capture current activity + file paths to distinguish a reader
             # from the creator and understand where native exports are written.
             (D/"activity_dump.txt").write_text(
