@@ -1,0 +1,45 @@
+name: Smart Book native Android export experiment
+
+on:
+  push:
+    paths:
+      - ".github/workflows/smartbook-emulator.yml"
+      - "scripts/automate_android.py"
+      - "scripts/ci_smartbook.sh"
+      - "books/unicorn/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-smart-book:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create diagnostics directory
+        run: mkdir -p debug artifacts
+      - name: Boot emulator, install official APK and attempt export
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          script: bash scripts/ci_smartbook.sh
+      - name: Upload emulator evidence and exported packages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smartbook-android-evidence
+          path: |
+            debug/
+            artifacts/
+          if-no-files-found: warn
+          retention-days: 7
