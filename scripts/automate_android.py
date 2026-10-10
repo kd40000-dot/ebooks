@@ -91,6 +91,17 @@ def replace_edittext(nodes, suffix, value):
     run(["shell","input","keyevent","KEYCODE_BACK"])
     return True
 
+def select_language_list_item(nodes, language="Vietnamese"):
+    # Filter search EditText and actual language TextView can contain the same
+    # string; only the android:id/text1 item selects a language.
+    for n in nodes:
+        if (n.get("resource-id") or "")=="android:id/text1" and (n.get("text") or "").strip().lower()==language.lower() and pos(n):
+            x,y=pos(n)
+            print("LANGUAGE RESULT SELECTED",language,x,y,flush=True)
+            tap_at(x,y)
+            return True
+    return False
+
 def select_vietnamese(nodes):
     spinners=[n for n in nodes if
               (n.get("resource-id") or "").endswith("/spinner") and pos(n)]
@@ -108,11 +119,11 @@ def select_vietnamese(nodes):
         time.sleep(2)
         run(["shell","input","keyevent","KEYCODE_BACK"])
         page=snapshot("language_filtered")
-        if click(page,["Vietnamese"]):
+        if select_language_list_item(page):
             return snapshot("vietnamese_selected")
     # Backup: scroll alphabetically past V. 13 swipes previously only reached K.
     for i in range(35):
-        if click(page,["Vietnamese"]):
+        if select_language_list_item(page):
             return snapshot("vietnamese_selected")
         run(["shell","input","swipe","360","1450","350","350","150"])
         time.sleep(0.3)
