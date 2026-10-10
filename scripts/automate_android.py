@@ -147,6 +147,8 @@ def select_vietnamese(nodes):
 
 def automate():
     assert SOURCE.exists(),str(SOURCE)
+    # The receiver saves original Android shared bytes, never generates SB2.
+    subprocess.run(["bash",str(ROOT/"scripts"/"build_share_sink.sh")],check=True,timeout=120)
     target="/sdcard/Download/ebooks-unicorn"
     shell(f"mkdir -p {target}")
     for filename in ["vietnamese_hyphenated.txt","english.txt"]:
@@ -362,6 +364,37 @@ def automate():
                 print("BOOK_SHOWN_IN_LIBRARY_OR_READER",flush=True)
             if click(nodes,["I_Found_a_Unicorn","Vietnamese_hyphenated"]):
                 nodes=snapshot("library_book_selected")
+            # Probe native saved-book overflow menu then the dedicated
+            # share control seen in previous verified UI hierarchy.
+            opts=next((n for n in nodes if "more options" in (n.get("content-desc") or "").lower() and pos(n)),None)
+            if opts is not None:
+                tap_at(*pos(opts))
+                nodes=snapshot("saved_book_more_options")
+                if has(nodes,"export") or has(nodes,"save as"):
+                    click(nodes,["export","save as"])
+                    nodes=snapshot("saved_book_native_export")
+                else:
+                    run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
+                    nodes=snapshot("saved_book_options_dismissed")
+            native_share=resource(nodes,"/action_share")
+            if native_share is not None and pos(native_share):
+                shell("logcat -c")
+                tap_at(*pos(native_share))
+                nodes=snapshot("saved_book_native_share")
+                for share_step in range(4):
+                    if click(nodes,["Save SB2 locally"]):
+                        nodes=snapshot("native_share_receiver_activated")
+                        break
+                    if click(nodes,["More apps","See all","Apps"]):
+                        nodes=snapshot(f"native_share_expanded_{share_step}")
+                        continue
+                    print("NATIVE_SHARE_RECEIVER_NOT_VISIBLE",flush=True)
+                    break
+                (D/"native_share_logcat.txt").write_text(
+                    shell("logcat -d -s SMARTBOOK_SINK:I ActivityTaskManager:I AndroidRuntime:E"),
+                    encoding="utf-8")
+            else:
+                print("NATIVE_SHARE_ACTION_NOT_VISIBLE",flush=True)
             # Also capture current activity + file paths to distinguish a reader
             # from the creator and understand where native exports are written.
             (D/"activity_dump.txt").write_text(
@@ -370,18 +403,30 @@ def automate():
         else:
             print("SAVE BUTTON NOT FOUND",flush=True)
     print("Finished current automatic navigation; searching for real exports.",flush=True)
-    exported=shell("find /sdcard/Download /sdcard/Documents -type f -iname '*.sb2' 2>/dev/null")
+    exported=shell("find /sdcard/Download /sdcard/Documents /sdcard/Android/data/io.github.kd40000.smartbooksink/files/native-share -type f \\( -iname '*.sb2' -o -iname 'shared-file*' -o -iname '*.zip' \\) 2>/dev/null")
+    print("EXPORT_PATHS",repr(exported),flush=True)
     found=0
     for remote in exported.splitlines():
         remote=remote.strip()
-        if not remote.lower().endswith(".sb2") or not remote.startswith("/sdcard/"):
-            continue
+        if not remote.startswith("/sdcard/"): continue
         local=O/Path(remote).name
         run(["pull",remote,str(local)])
-        with zipfile.ZipFile(local) as z:
-            if any(f.filename.endswith(".sb") for f in z.infolist()):
-                found+=1
-                print("EXPORTED BY APP",local,flush=True)
+        try:
+            with zipfile.ZipFile(local) as z:
+                entries=z.infolist()
+                meta=[f for f in entries if f.filename.lower().endswith(".sb")]
+                encrypted=sum(bool(f.flag_bits & 1) for f in meta)
+                if meta and encrypted:
+                    found+=1
+                    verified=O/"I_Found_a_Unicorn_native.sb2"
+                    verified.write_bytes(local.read_bytes())
+                    print("GENUINE_APP_GENERATED_SB2:",verified,
+                          "native_sb_entries=",len(meta),"encrypted=",encrypted,flush=True)
+                else:
+                    print("SHARE_CONTENT_NOT_NATIVE_SB2",local,"entries=",
+                          [f.filename for f in entries[:12]],flush=True)
+        except (zipfile.BadZipFile, OSError) as e:
+            print("SHARE_CONTENT_NOT_ZIP",local,repr(e),flush=True)
     return found>0
 
 try:
