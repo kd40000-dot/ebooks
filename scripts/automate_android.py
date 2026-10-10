@@ -283,14 +283,27 @@ def automate():
             time.sleep(7)
             nodes=snapshot("reader_after_save")
             print("SAVE_TAPPED_READER_SCREENSHOT_CAPTURES_BOOK",flush=True)
-            # Reader hamburger observed at (778, 109) on 832x1843 emulator.
-            # Take a separate screenshot after opening, to discover Export/Share.
-            tap_at(778,109)
-            nodes=snapshot("reader_hamburger_menu")
-            if click(nodes,["share book","export book","export","share","download book","save to file"]):
-                nodes=snapshot("native_export_or_share")
-            elif click(nodes,["book information","book info","settings","more","edit book"]):
-                nodes=snapshot("book_menu_submenu")
+            # The app shows a first-run reader tutorial after Save and after
+            # the first menu tap. Dismiss it *before* trying to export.
+            for n in range(4):
+                if click(nodes,["ok","got it","skip","close"]):
+                    nodes=snapshot(f"reader_tutorial_dismissed_{n}")
+                else:
+                    break
+            # Reader hamburger observed at (778,109) on 832x1843.
+            for n in range(3):
+                tap_at(778,109)
+                nodes=snapshot(f"reader_hamburger_menu_{n}")
+                if has(nodes,"make a short press") or has(nodes,"note") and has(nodes,"translation"):
+                    if click(nodes,["ok","got it","skip","close"]):
+                        nodes=snapshot(f"reader_tutorial_after_menu_{n}")
+                        continue
+                if click(nodes,["share book","export book","export","share","send book","save to file"]):
+                    nodes=snapshot("native_export_or_share")
+                elif click(nodes,["book information","book info","settings","more","edit book"]):
+                    nodes=snapshot("book_menu_submenu")
+                break
+            print("READER_MENU_PROBED",flush=True)
             # Also capture current activity + file paths to distinguish a reader
             # from the creator and understand where native exports are written.
             (D/"activity_dump.txt").write_text(
