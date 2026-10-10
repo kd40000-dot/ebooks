@@ -191,12 +191,16 @@ def automate():
         nodes=snapshot("library_home")
     if click(nodes,["my books"]):
         nodes=snapshot("my_books")
-    if click(nodes,["create parallel book","create book","add book","new book","import text","paste text"]):
-        nodes=snapshot("native_book_creator")
-    if not has(nodes,"enter a book name"):
-        if click(nodes,["more options","add","create"]):
-            nodes=snapshot("creation_options")
-    # Still try a text-share intent only if the native creator was not found.
+    if click(nodes,["add book","create book","new book"]):
+        nodes=snapshot("add_book_dialog")
+    # In the native Add Book dialog the action text is exactly
+    # "Create a parallel book". Use it directly: earlier code missed the
+    # indefinite article and unnecessarily invoked Android ACTION_SEND.
+    if click(nodes,["create a parallel book","create parallel book"]):
+        nodes=snapshot("native_parallel_book_editor")
+    # Only fall back to text sharing if native creator is unavailable.
+    # The shared activity is a separate "Open a book"/"Share" resolver.
+
     if not has(nodes,"enter a book name"):
         remote=target+"/vietnamese_hyphenated.txt"
         cmd=('am start -a android.intent.action.SEND -t text/plain '
@@ -250,8 +254,17 @@ def automate():
         if resource(nodes,"/chapter") is not None:
             replace_edittext(nodes,"/chapter","Chapter 1")
             nodes=snapshot("chapter_named")
-        # Chapter source button opens local text entry/upload options. Inspect
-        # it before attempting Save; the shared-intent may leave chapter blank.
+        # In the direct native editor an empty chapter offers Paste text or
+        # Upload a file. Prefer file picker so UTF-8 Vietnamese is unchanged.
+        if click(nodes,["upload a file","upload file","choose a file"]):
+            nodes=snapshot("native_source_file_picker")
+            if click(nodes,["downloads","download"]):
+                nodes=snapshot("native_downloads")
+            if click(nodes,["ebooks-unicorn"]):
+                nodes=snapshot("native_unicorn_folder")
+            if click(nodes,["vietnamese_hyphenated.txt","vietnamese_hyphenated"]):
+                nodes=snapshot("native_vietnamese_imported")
+        # Chapter source icon may open further editing options.
         source_button=resource(nodes,"/source")
         if source_button is not None and pos(source_button):
             x,y=pos(source_button)
