@@ -31,3 +31,14 @@ The helper script `scripts/prototype_sb2.py` generates an unencrypted **experime
 - Android captured screenshots and UI dumps are local and excluded from Git by `.gitignore`; review for private data before sharing.
 
 **Do not treat a ZIP-shaped candidate as a proven native Smart Book export.**
+
+
+## Unattended GitHub Actions experiment
+
+The workflow at [.github/workflows/smartbook-emulator.yml](.github/workflows/smartbook-emulator.yml) attempts to install the official Smart Book APK on an Android emulator hosted by GitHub Actions, share the source Vietnamese text into the reader, navigate the creation screen, and collect any **app-produced** SB2 exports. It does not use or attempt to extract personal credentials from the physical phone.
+
+- [Workflow runs](https://github.com/kd40000-dot/ebooks/actions/workflows/smartbook-emulator.yml)
+- Diagnostics: action artifact named **smartbook-android-evidence**, containing XML UI hierarchy and screenshots; may include book text or UI state.
+- The job exits unsuccessfully when it cannot verify a genuine app-exported SB2. It is an exploratory UI automation attempt, **not yet a working converter**.
+
+A fully automated workflow can be validated only when the emulator completes a real Save/Export in the Android application. The repo's earlier synthetic packages cannot be used.
