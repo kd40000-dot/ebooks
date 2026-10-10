@@ -34,10 +34,10 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_4
-          cores: 2
-          ram-size: 2048M
-          heap-size: 256M
-          disk-size: 2048M
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          disk-size: 3072M
           emulator-boot-timeout: 360
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
