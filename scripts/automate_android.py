@@ -287,11 +287,14 @@ def automate():
     if has(nodes,"enter a book name"):
         replace_edittext(nodes,"/name","I_Found_a_Unicorn")
         nodes=snapshot("named_book")
-        if click(nodes,["end of sentence","paragraph separator"]):
-            nodes=snapshot("separator_menu")
-            # Smart Book calls the blank-line paragraph separator "Empty string".
-            if click(nodes,["empty string"]):
-                nodes=snapshot("separator_set")
+        # Preserve the app's native "End of sentence" setting. This is
+        # intentionally different from the earlier validated "Empty string"
+        # export; the user requested sentence-level paragraph segmentation.
+        if not has(nodes,"End of sentence"):
+            print("END_OF_SENTENCE_SETTING_NOT_FOUND",flush=True)
+            return False
+        print("PARAGRAPH_SEPARATOR_VERIFIED: End of sentence",flush=True)
+        nodes=snapshot("sentence_separator_confirmed")
         nodes=select_vietnamese(nodes)
         if resource(nodes,"/chapter") is not None:
             replace_edittext(nodes,"/chapter","Chapter 1")
