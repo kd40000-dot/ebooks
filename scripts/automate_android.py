@@ -7,7 +7,24 @@ D=ROOT/"debug"
 D.mkdir(exist_ok=True)
 O=ROOT/"artifacts"
 O.mkdir(exist_ok=True)
-SOURCE=ROOT/"books"/"unicorn"/"vietnamese_hyphenated.txt"
+CHAPTERS=[
+  {
+    "title": "Chương 1 - Những cái chết bí ẩn",
+    "vi": "Chương 1 - Những cái chết bí ẩn.txt",
+    "en": "01 - Mysterious Deaths - English.txt"
+  },
+  {
+    "title": "Chương 2 - Dấu máu lấp lánh",
+    "vi": "Chương 2 - Dấu máu lấp lánh.txt",
+    "en": "02 - Sparkling Blood - English.txt"
+  },
+  {
+    "title": "Chương 3 - Đối mặt với kỳ lân",
+    "vi": "Chương 3 - Đối mặt với kỳ lân.txt",
+    "en": "03 - Face to Face with the Unicorn - English.txt"
+  }
+]
+CHAPTERS_ROOT=ROOT/"books"/"unicorn"/"chapters"
 STEP=0
 
 def run(args, check=True, binary=False):
@@ -175,17 +192,28 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
     print("DOCUMENT_PICKED_FROM_PHYSICAL_STORAGE",filename,flush=True)
     return snapshot(prefix+"_selected")
 
+def stage_chapter(index,target):
+    book=CHAPTERS[index]
+    for lang,filename in (("vi",book["vi"]),("en",book["en"])):
+        source=CHAPTERS_ROOT/lang/filename
+        if not source.exists(): raise FileNotFoundError(source)
+        run(["push",str(source),target+"/"+filename])
+        shell('am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "file://'+target+'/'+filename+'"')
+    print("STAGED_CHAPTER",index+1,book["title"],flush=True)
+
+def latest_chapter_menu(nodes):
+    xs=[n for n in nodes if (n.get("resource-id") or "").endswith("/menu") and pos(n)]
+    return max(xs,key=lambda n:pos(n)[1]) if xs else None
+
 def automate():
-    assert SOURCE.exists(),str(SOURCE)
-    # The receiver saves original Android shared bytes, never generates SB2.
+    for book in CHAPTERS:
+        for lang,filename in (("vi",book["vi"]),("en",book["en"])):
+            if not (CHAPTERS_ROOT/lang/filename).exists():
+                raise FileNotFoundError(CHAPTERS_ROOT/lang/filename)
     subprocess.run(["bash",str(ROOT/"scripts"/"build_share_sink.sh")],check=True,timeout=120)
     target="/sdcard/Download/ebooks-unicorn"
     shell(f"mkdir -p {target}")
-    for filename in ["vietnamese_hyphenated.txt","english.txt"]:
-        run(["push",str(ROOT/"books"/"unicorn"/filename),target+"/"+filename])
-        # Some AOSP DocumentsUI instances rely on MediaStore indexing.
-        shell('am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "file://'+target+'/'+filename+'"')
-    print("STAGED_FILE_LISTING",shell("ls -la "+target),flush=True)
+    stage_chapter(0,target)
     shell("pm grant com.kursx.smartbook android.permission.POST_NOTIFICATIONS")
     run(["shell","monkey","-p","com.kursx.smartbook","-c","android.intent.category.LAUNCHER","1"])
     time.sleep(22)
@@ -285,61 +313,64 @@ def automate():
         if click(nodes,["create parallel book","create a book","new book","add book","import text file","create book"]):
             nodes=snapshot("creation_from_library")
     if has(nodes,"enter a book name"):
-        replace_edittext(nodes,"/name","I_Found_a_Unicorn")
+        if not replace_edittext(nodes,"/name","I Found a Unicorn"):
+            print("BOOK_TITLE_FAILED",flush=True)
+            return False
         nodes=snapshot("named_book")
-        # Preserve the app's native "End of sentence" setting. This is
-        # intentionally different from the earlier validated "Empty string"
-        # export; the user requested sentence-level paragraph segmentation.
+        if not replace_edittext(nodes,"/author","Anonymous"):
+            print("AUTHOR_FIELD_FAILED",flush=True)
+            return False
+        nodes=snapshot("author_set")
         if not has(nodes,"End of sentence"):
             print("END_OF_SENTENCE_SETTING_NOT_FOUND",flush=True)
             return False
         print("PARAGRAPH_SEPARATOR_VERIFIED: End of sentence",flush=True)
-        nodes=snapshot("sentence_separator_confirmed")
         nodes=select_vietnamese(nodes)
-        if resource(nodes,"/chapter") is not None:
-            replace_edittext(nodes,"/chapter","Chapter 1")
-            nodes=snapshot("chapter_named")
-        # In the direct native editor an empty chapter offers Paste text or
-        # Upload a file. Prefer file picker so UTF-8 Vietnamese is unchanged.
-        if click(nodes,["upload a file","upload file","choose a file"]):
-            nodes=snapshot("native_source_file_picker")
-            nodes=pick_txt_from_documents_ui(nodes,"vietnamese_hyphenated.txt","vietnamese_import")
-        # The primary file picker has already loaded the TXT chapter.
-        # Do not reopen /source: that restarts Android's file chooser.
-        if not has(nodes,"vietnamese_hyphenated"):
-            print("PRIMARY_CHAPTER_NOT_PRESENT: abort before Save",flush=True)
+        if not has(nodes,"Vietnamese"):
+            print("VIETNAMESE_LANGUAGE_NOT_SELECTED",flush=True)
             return False
-        print("PRIMARY_CHAPTER_PRESENT",flush=True)
-        # User-confirmed native workflow (Fairphone / LineageOS):
-        # Vietnamese chapter's 3-dot menu → Translation → Upload a file →
-        # english.txt. The English file must be added BEFORE Save/Export.
-        # Use the actual resource ID /menu rather than guessing coordinates.
-        chapter_menu=resource(nodes,"/menu")
-        if chapter_menu is None or pos(chapter_menu) is None:
-            print("CHAPTER_MENU_NOT_FOUND: cannot attach English",flush=True)
-            return False
-        x,y=pos(chapter_menu)
-        print("CHAPTER_THREE_DOT_MENU",x,y,flush=True)
-        tap_at(x,y)
-        nodes=snapshot("chapter_three_dot_actions")
-        if not click(nodes,["translation"]):
-            print("TRANSLATION_ACTION_NOT_FOUND",flush=True)
-            return False
-        nodes=snapshot("chapter_translation_controls")
-        if not click(nodes,["upload a file","upload file"]):
-            print("TRANSLATION_UPLOAD_NOT_FOUND",flush=True)
-            return False
-        nodes=snapshot("english_translation_file_picker")
-        nodes=pick_txt_from_documents_ui(nodes,"english.txt","english_import")
-        # Smart Book does not expose the target filename as accessibility
-        # text. Instead, the editor creates an explicit /target control
-        # only after the translation file was selected.
-        if resource(nodes,"/target") is None:
-            print("ENGLISH_TRANSLATION_TARGET_NOT_CREATED",flush=True)
-            return False
-        print("ENGLISH_TRANSLATION_TARGET_PRESENT",flush=True)
-        nodes=snapshot("english_translation_imported")
-        print("ENGLISH_TRANSLATION_ATTACHED_BEFORE_SAVE",flush=True)
+        print("BOOK_METADATA: I Found a Unicorn / Anonymous",flush=True)
+        for index,chapter in enumerate(CHAPTERS):
+            n=index+1
+            if index:
+                if not click(nodes,["add a chapter"]):
+                    run(["shell","input","swipe","420","1300","420","550","380"])
+                    nodes=snapshot(f"chapter_{n}_scroll_for_add")
+                    if not click(nodes,["add a chapter"]):
+                        print("ADD_CHAPTER_NOT_FOUND",n,flush=True)
+                        return False
+                nodes=snapshot(f"chapter_{n}_empty")
+                stage_chapter(index,target)
+            if not click(nodes,["upload a file","upload file","choose a file"]):
+                print("PRIMARY_UPLOAD_NOT_FOUND",n,flush=True)
+                return False
+            nodes=snapshot(f"chapter_{n}_vi_picker")
+            nodes=pick_txt_from_documents_ui(nodes,chapter["vi"],f"chapter_{n}_vi")
+            if not has(nodes,chapter["title"]):
+                print("NUMBERED_CHAPTER_NOT_PRESENT",n,chapter["title"],flush=True)
+                return False
+            print("NUMBERED_CHAPTER_IMPORTED",n,chapter["title"],flush=True)
+            m=latest_chapter_menu(nodes)
+            if m is None:
+                print("CHAPTER_MENU_NOT_FOUND",n,flush=True)
+                return False
+            tap_at(*pos(m))
+            nodes=snapshot(f"chapter_{n}_three_dot")
+            if not click(nodes,["translation"]):
+                print("TRANSLATION_ACTION_NOT_FOUND",n,flush=True)
+                return False
+            nodes=snapshot(f"chapter_{n}_translation_entry")
+            if not click(nodes,["upload a file","upload file"]):
+                print("TRANSLATION_UPLOAD_NOT_FOUND",n,flush=True)
+                return False
+            nodes=snapshot(f"chapter_{n}_en_picker")
+            nodes=pick_txt_from_documents_ui(nodes,chapter["en"],f"chapter_{n}_en")
+            if not any((x.get("resource-id") or "").endswith("/target") for x in nodes):
+                print("ENGLISH_TRANSLATION_TARGET_NOT_CREATED",n,flush=True)
+                return False
+            print("BILINGUAL_CHAPTER_READY",n,chapter["title"],flush=True)
+            nodes=snapshot(f"chapter_{n}_bilingual_ready")
+        print("ALL_NUMBERED_CHAPTERS_READY",len(CHAPTERS),flush=True)
         # Save now opens the NATIVE BOOK READER (verified by last-run PNG).
         # Last run's uiautomator XML was stale and misleading, not Save failure.
         if click(nodes,["save"]):
@@ -386,9 +417,9 @@ def automate():
             run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
             time.sleep(2)
             nodes=snapshot("after_reader_back")
-            if has(nodes,"I_Found_a_Unicorn"):
+            if has(nodes,"I Found a Unicorn"):
                 print("BOOK_SHOWN_IN_LIBRARY_OR_READER",flush=True)
-            if click(nodes,["I_Found_a_Unicorn","Vietnamese_hyphenated"]):
+            if click(nodes,["I Found a Unicorn","Vietnamese_hyphenated"]):
                 nodes=snapshot("library_book_selected")
             # Probe native saved-book overflow menu then the dedicated
             # share control seen in previous verified UI hierarchy.
@@ -460,7 +491,7 @@ def automate():
                 encrypted=sum(bool(f.flag_bits & 1) for f in meta)
                 if meta and encrypted:
                     found+=1
-                    verified=O/"I_Found_a_Unicorn_native.sb2"
+                    verified=O/"I Found a Unicorn_native.sb2"
                     verified.write_bytes(local.read_bytes())
                     print("GENUINE_APP_GENERATED_SB2:",verified,
                           "native_sb_entries=",len(meta),"encrypted=",encrypted,flush=True)
