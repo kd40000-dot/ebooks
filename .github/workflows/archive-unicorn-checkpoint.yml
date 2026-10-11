@@ -1,0 +1,50 @@
+name: Archive confirmed Smart Book checkpoint
+
+on:
+  push:
+    paths:
+      - ".github/workflows/archive-unicorn-checkpoint.yml"
+  workflow_dispatch:
+
+# Intentionally one-time / manual; archiving never launches the Android emulator.
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Download the exact successful run artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/kd40000-dot/ebooks/actions/artifacts/11687159724/zip" \
+            -o /tmp/smartbook-checkpoint.zip
+          unzip -t /tmp/smartbook-checkpoint.zip
+          mkdir -p checkpoints/smartbook-bilingual-v1
+          unzip -p /tmp/smartbook-checkpoint.zip \
+            "artifacts/I Found a Unicorn_native.sb2" \
+            > "checkpoints/smartbook-bilingual-v1/I Found a Unicorn - Three Chapters.sb2"
+          test "$(stat -c %s "checkpoints/smartbook-bilingual-v1/I Found a Unicorn - Three Chapters.sb2")" = 9731
+          echo "c416acc906a77b40f3e8faeffdd93dc6d3f18f4b5f17e02bd04e37d854b70646  checkpoints/smartbook-bilingual-v1/I Found a Unicorn - Three Chapters.sb2" | sha256sum -c -
+          python3 scripts/verify_native_sb2.py "checkpoints/smartbook-bilingual-v1/I Found a Unicorn - Three Chapters.sb2" --chapters 3
+      - name: Persist golden file in Git repository
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "checkpoints/smartbook-bilingual-v1/I Found a Unicorn - Three Chapters.sb2"
+          if ! git diff --staged --quiet; then
+            git commit -m "Archive verified three-chapter bilingual Smart Book SB2 baseline"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          else
+            echo "Golden SB2 already archived."
+          fi

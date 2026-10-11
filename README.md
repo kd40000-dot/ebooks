@@ -1,44 +1,39 @@
-# Ebooks — Smart Book Vietnamese learning project
+# Bilingual Smart Books — working production checkpoint
 
-We convert English stories into **Vietnamese primary / English translation** editions for KursX Smart Book, joining learner-useful Vietnamese vocabulary and contextual expressions using hyphens.
+This repository contains a **proven native KursX Smart Book (.sb2) workflow** for converting a story into a Vietnamese-primary, English-translation ebook, using context-sensitive Vietnamese hyphenation. The three-chapter *I Found a Unicorn* edition has been exported by the actual Android Smart Book app and the user confirmed that edition works on their Fairphone 6 / LineageOS.
 
-## Current test book
+**START HERE:** [Full reusable method](docs/SMARTBOOK_WORKING_METHOD.md) · [Checkpoint source branch](https://github.com/kd40000-dot/ebooks/tree/checkpoint/smartbook-bilingual-v1-working) · [Successful export run](https://github.com/kd40000-dot/ebooks/actions/runs/38099039411)
 
-`books/unicorn/vietnamese_hyphenated.txt` — 16 Vietnamese paragraphs with 155 hyphen connections.  
-`books/unicorn/english.txt` — the 16 aligned English paragraphs.
+## Proven finished example
 
-To create the book on Android (Fairphone 6 / LineageOS), open Smart Book → Create parallel book, import the Vietnamese first and English as its translation, select **Empty line** for the paragraph separator, then export from the app. That is presently the reliable route to an app-generated `.sb2`.
+- Title: **I Found a Unicorn**; author: **Anonymous**
+- Vietnamese primary text with meaningful phrase hyphenation; English as attached translation
+- Book separator setting: **End of sentence**
+- Three numbered chapters with readable Vietnamese titles and **no underscores** in displayed names
+- Original source: `books/unicorn/vietnamese_hyphenated.txt` and `books/unicorn/english.txt` — 16 aligned source passages, unchanged through the three-chapter split
+- Chapter files: `books/unicorn/chapters/vi/` and `books/unicorn/chapters/en/`
+- GitHub Actions workflow: [.github/workflows/smartbook-emulator.yml](.github/workflows/smartbook-emulator.yml)
+- Native app automation: [scripts/automate_android.py](scripts/automate_android.py)
+- Binary checkpoint: `checkpoints/smartbook-bilingual-v1/I Found a Unicorn - Three Chapters.sb2` (archived by a separate one-time workflow; see checkpoint method document for verification)
 
-## Reverse engineering and experimental packages
+**Known-good file SHA-256:** `c416acc906a77b40f3e8faeffdd93dc6d3f18f4b5f17e02bd04e37d854b70646` (9,731 bytes). The ZIP container has **one encrypted book metadata `.sb` entry and three encrypted chapter `.sb` entries**.
 
-Previously supplied app-generated `.sb2` samples have a ZIP container, one metadata `.sb` file and separate chapter `.sb` entries using Deflate and classic ZipCrypto. Their password and current native payload serialization remain unknown.
+## What is automated and what is not
 
-The sample `.sb2` packages produced in this experiment are **confirmed to fail in Smart Book** (2026-10-10). They use an older Parallator-style JSON model and either no ZIP encryption or a test-only password. Passing ZIP validation does not mean passing Smart Book's import validation.
+1. **Content preparation:** Translation from the source language into Vietnamese, phrase-level hyphenation, editorial chapter selection, and alignment/QA are performed with language-model assistance and reviewed for fidelity. They are **not currently provided as a standalone automatic Python translator**.
+2. **Native ebook production:** The repository's GitHub Actions emulator job installs the official Smart Book APK, imports each Vietnamese chapter and its English translation, and uses Smart Book's **top-right share icon on the saved-book chapter list** to export the real encrypted `.sb2`.
+3. **Validation:** Check source alignment, import logs, the `.sb2` ZIP entries/encryption, and finally import/read the book on an actual Fairphone or another Smart Book installation.
 
-The helper script `scripts/prototype_sb2.py` generates an unencrypted **experimental** archive from the paired text files. `scripts/stage_android.sh` can stage the text files using ADB.
+The current script is configured for the Unicorn example. **Adapt its chapter manifest, title and author fields for each new book**, rather than reusing the Unicorn content.
 
-## References
+## Important safety notes
 
-- [Official Smart Book](https://smart-book.net/)
+The older `scripts/prototype_sb2.py` is an **unsuccessful experimental generator**, retained for format research only. **Never use it to create a deliverable.** Hand-built ZIPs failed to import; the official Android app must make the package.
+
+GitHub Actions artifacts are temporary. Keep the verified baseline `.sb2` and this Git checkpoint. UI hierarchy captures may contain excerpts of the book; review before distributing diagnostics.
+
+### References
+
+- [KursX Smart Book](https://smart-book.net/)
 - [KursX Parallator](https://github.com/KursX/Parallator)
-- App ID on Android: `com.kursx.smartbook`
-
-## Current result and next experiments
-
-- **Failed import confirmed:** Smart Book showed a Zip4j invalid-CRC error and a generic incomplete-download message when trying the experimental archives. We do not know which screenshot corresponds to which experimental candidate. See [the test report](docs/2026-10-10-import-failure.md).
-- **Do not use the synthetic `.sb2` generator for real books.** It is retained solely as a reverse-engineering experiment.
-- **Next:** use `scripts/capture_android_ui.sh` on your Fairphone 6 with ADB while Smart Book's book creation screen is open, then identify and automate the in-app Save / Export steps.
-- Android captured screenshots and UI dumps are local and excluded from Git by `.gitignore`; review for private data before sharing.
-
-**Do not treat a ZIP-shaped candidate as a proven native Smart Book export.**
-
-
-## Unattended GitHub Actions experiment
-
-The workflow at [.github/workflows/smartbook-emulator.yml](.github/workflows/smartbook-emulator.yml) attempts to install the official Smart Book APK on an Android emulator hosted by GitHub Actions, share the source Vietnamese text into the reader, navigate the creation screen, and collect any **app-produced** SB2 exports. It does not use or attempt to extract personal credentials from the physical phone.
-
-- [Workflow runs](https://github.com/kd40000-dot/ebooks/actions/workflows/smartbook-emulator.yml)
-- Diagnostics: action artifact named **smartbook-android-evidence**, containing XML UI hierarchy and screenshots; may include book text or UI state.
-- The job exits unsuccessfully when it cannot verify a genuine app-exported SB2. It is an exploratory UI automation attempt, **not yet a working converter**.
-
-A fully automated workflow can be validated only when the emulator completes a real Save/Export in the Android application. The repo's earlier synthetic packages cannot be used.
+- Android application ID: `com.kursx.smartbook`
