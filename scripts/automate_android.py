@@ -374,11 +374,16 @@ def automate():
         if tile is None:
             print("COVER_TILE_NOT_FOUND",flush=True)
             return False
-        bounds=[int(v) for v in re.findall(r"\\d+",tile.get("bounds",""))]
-        if len(bounds)!=4:
+        # DocumentsUI renders a dedicated preview icon in the top-right
+        # part of this tile. Tap the LOWER half of the tile to SELECT the
+        # JPEG instead of opening Preview. Avoid double-escaped regex
+        # parsing of bounds (the previous experiment returned False here).
+        center=pos(tile)
+        if center is None:
+            print("COVER_TILE_HAS_NO_BOUNDS",flush=True)
             return False
-        x=(bounds[0]+bounds[2])//2
-        y=bounds[1]+(bounds[3]-bounds[1])*4//5
+        x=center[0]-35
+        y=center[1]+58
         print("COVER_TILE_SELECT_NOT_PREVIEW",x,y,flush=True)
         tap_at(x,y)
         nodes=snapshot("native_cover_tile_selection")
