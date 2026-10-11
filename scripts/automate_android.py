@@ -174,8 +174,12 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
     if search is not None and pos(search):
         tap_at(*pos(search))
         search_nodes=snapshot(prefix+"_search_open")
-        edits=[n for n in search_nodes if "EditText" in (n.get("class") or "") and pos(n)]
-        if edits:
+        # DocumentsUI's AndroidX SearchView text box is exposed as
+        # /search_src_text; some emulator builds do not report class EditText.
+        field=resource(search_nodes,"/search_src_text")
+        edits=([field] if field is not None else
+               [n for n in search_nodes if "EditText" in (n.get("class") or "") and pos(n)])
+        if edits and pos(edits[0]):
             tap_at(*pos(edits[0]))
             digits=re.search(r"(?:^| )([0-9]{1,2})(?: | -)",filename)
             query=(digits.group(1) if digits else filename[:2])
