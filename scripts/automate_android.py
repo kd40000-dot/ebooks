@@ -164,9 +164,20 @@ def select_vietnamese(nodes):
     return snapshot("language_unknown")
 
 def pick_txt_from_documents_ui(nodes, filename, prefix):
-    """Use the device filesystem provider, not the indexed Downloads shortcut."""
+    """Find the requested TXT across the entire scrollable DocumentsUI list."""
     if click(nodes,[filename]):
         return snapshot(prefix+"_selected_recent")
+    # As chapters accumulate, DocumentsUI shows Recent files in a list that
+    # extends past the viewport. The third English file may be below the fold.
+    # Scroll the content area before switching roots; this is more reliable
+    # than a storage-root navigation that may temporarily return empty XML.
+    for scroll in range(8):
+        run(["shell","input","swipe","430","1460","430","520","380"])
+        time.sleep(1)
+        nodes=snapshot(prefix+f"_recent_scroll_{scroll}")
+        if click(nodes,[filename]):
+            print("SCROLLED_DOCUMENTSUI_TO_FILE",filename,scroll,flush=True)
+            return snapshot(prefix+"_selected_after_scroll")
     # Android DocumentsUI distinguishes its indexed 'Downloads' root from the
     # physical device-storage root. adb-pushed files may be absent in indexed
     # Downloads but present at /sdcard/Download.
@@ -178,6 +189,10 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
         print("PHYSICAL_STORAGE_ROOT_NOT_FOUND",flush=True)
         return nodes
     nodes=snapshot(prefix+"_device_storage")
+    for retry in range(3):
+        if nodes: break
+        time.sleep(3)
+        nodes=snapshot(prefix+f"_storage_loading_{retry}")
     if not click(nodes,["Download"]):
         print("PHYSICAL_DOWNLOAD_FOLDER_NOT_FOUND",flush=True)
         return nodes
