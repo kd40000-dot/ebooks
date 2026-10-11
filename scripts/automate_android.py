@@ -256,6 +256,11 @@ def automate():
     target="/sdcard/Download/ebooks-unicorn"
     shell(f"mkdir -p {target}")
     stage_chapter(0,target)
+    cover=ROOT/"books"/"unicorn"/"art"/"cover.jpg"
+    assert cover.exists(),str(cover)
+    run(["push",str(cover),target+"/cover.jpg"])
+    shell('am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "file://'+target+'/cover.jpg"')
+    print("COVER_JPEG_STAGED",cover.stat().st_size,flush=True)
     shell("pm grant com.kursx.smartbook android.permission.POST_NOTIFICATIONS")
     run(["shell","monkey","-p","com.kursx.smartbook","-c","android.intent.category.LAUNCHER","1"])
     time.sleep(22)
@@ -355,15 +360,21 @@ def automate():
         if click(nodes,["create parallel book","create a book","new book","add book","import text file","create book"]):
             nodes=snapshot("creation_from_library")
     if has(nodes,"enter a book name"):
-        # ISOLATED EXPERIMENT: probe the book cover picker without
-        # changing the known-good .sb2 workflow on main.
+        # Isolated native cover-image test. Picker support was confirmed
+        # in run 38102529571; choose our staged JPEG and continue the
+        # fully validated three-chapter parallel-book export.
         thumbnail=resource(nodes,"/thumbnail_layout")
-        print("THUMBNAIL_CONTROL_EXISTS",thumbnail is not None,flush=True)
-        if thumbnail is not None:
-            tap_at(*pos(thumbnail))
-            nodes=snapshot("thumbnail_tapped_check_cover_selection")
-            print("THUMBNAIL_PROBE_FINISHED",flush=True)
-        return False
+        if thumbnail is None or not pos(thumbnail):
+            print("COVER_PICKER_CONTROL_NOT_FOUND",flush=True)
+            return False
+        tap_at(*pos(thumbnail))
+        nodes=snapshot("native_cover_picker")
+        nodes=pick_txt_from_documents_ui(nodes,"cover.jpg","native_cover")
+        if not has(nodes,"enter a book name"):
+            print("COVER_IMAGE_NOT_SELECTED",flush=True)
+            return False
+        print("NATIVE_COVER_IMAGE_SELECTED",flush=True)
+        nodes=snapshot("book_editor_cover_selected")
         if not replace_edittext(nodes,"/name","I Found a Unicorn"):
             print("BOOK_TITLE_FAILED",flush=True)
             return False
