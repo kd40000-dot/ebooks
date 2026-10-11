@@ -369,7 +369,19 @@ def automate():
             return False
         tap_at(*pos(thumbnail))
         nodes=snapshot("native_cover_picker")
-        nodes=pick_txt_from_documents_ui(nodes,"cover.jpg","native_cover")
+        # Select the filename portion, not the preview-icon child.
+        tile=next((n for n in nodes if n.get("class","").endswith("LinearLayout") and "cover.jpg" in n.get("content-desc","")),None)
+        if tile is None:
+            print("COVER_TILE_NOT_FOUND",flush=True)
+            return False
+        bounds=[int(v) for v in re.findall(r"\\d+",tile.get("bounds",""))]
+        if len(bounds)!=4:
+            return False
+        x=(bounds[0]+bounds[2])//2
+        y=bounds[1]+(bounds[3]-bounds[1])*4//5
+        print("COVER_TILE_SELECT_NOT_PREVIEW",x,y,flush=True)
+        tap_at(x,y)
+        nodes=snapshot("native_cover_tile_selection")
         if not has(nodes,"enter a book name"):
             print("COVER_IMAGE_NOT_SELECTED",flush=True)
             return False
