@@ -167,11 +167,34 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
     """Find the requested TXT across the entire scrollable DocumentsUI list."""
     if click(nodes,[filename]):
         return snapshot(prefix+"_selected_recent")
+    # Android DocumentsUI offers an actual Search control. Use the ASCII
+    # chapter number to find a filename that is below the Recent viewport.
+    # In particular the third English text begins "03 - ".
+    search=resource(nodes,"/option_menu_search")
+    if search is not None and pos(search):
+        tap_at(*pos(search))
+        search_nodes=snapshot(prefix+"_search_open")
+        edits=[n for n in search_nodes if "EditText" in (n.get("class") or "") and pos(n)]
+        if edits:
+            tap_at(*pos(edits[0]))
+            digits=re.search(r"(?:^| )([0-9]{1,2})(?: | -)",filename)
+            query=(digits.group(1) if digits else filename[:2])
+            print("SEARCH_DOCUMENTS_UI",query,filename,flush=True)
+            run(["shell","input","text",query])
+            time.sleep(2)
+            run(["shell","input","keyevent","KEYCODE_ENTER"],check=False)
+            run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
+            nodes=snapshot(prefix+"_search_results")
+            if click(nodes,[filename]):
+                print("FOUND_DOCUMENT_VIA_SEARCH",filename,flush=True)
+                return snapshot(prefix+"_selected_search")
+        run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
+        nodes=snapshot(prefix+"_search_cancelled")
     # As chapters accumulate, DocumentsUI shows Recent files in a list that
     # extends past the viewport. The third English file may be below the fold.
     # Scroll the content area before switching roots; this is more reliable
     # than a storage-root navigation that may temporarily return empty XML.
-    for scroll in range(8):
+    for scroll in range(3):
         run(["shell","input","swipe","430","1460","430","520","380"])
         time.sleep(1)
         nodes=snapshot(prefix+f"_recent_scroll_{scroll}")
