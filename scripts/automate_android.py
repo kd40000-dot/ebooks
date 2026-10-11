@@ -355,6 +355,15 @@ def automate():
         if click(nodes,["create parallel book","create a book","new book","add book","import text file","create book"]):
             nodes=snapshot("creation_from_library")
     if has(nodes,"enter a book name"):
+        # ISOLATED EXPERIMENT: probe the book cover picker without
+        # changing the known-good .sb2 workflow on main.
+        thumbnail=resource(nodes,"/thumbnail_layout")
+        print("THUMBNAIL_CONTROL_EXISTS",thumbnail is not None,flush=True)
+        if thumbnail is not None:
+            tap_at(*pos(thumbnail))
+            nodes=snapshot("thumbnail_tapped_check_cover_selection")
+            print("THUMBNAIL_PROBE_FINISHED",flush=True)
+        return False
         if not replace_edittext(nodes,"/name","I Found a Unicorn"):
             print("BOOK_TITLE_FAILED",flush=True)
             return False
