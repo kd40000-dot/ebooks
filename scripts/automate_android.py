@@ -9,22 +9,37 @@ O=ROOT/"artifacts"
 O.mkdir(exist_ok=True)
 CHAPTERS=[
   {
-    "title": "Chương 1 - Những cái chết bí ẩn",
-    "vi": "Chương 1 - Những cái chết bí ẩn.txt",
-    "en": "01 - Mysterious Deaths - English.txt"
+    "title": "Chương 1 - Lời thì thầm lúc nửa đêm",
+    "vi": "Chương 1 - Lời thì thầm lúc nửa đêm.txt",
+    "en": "01 - The Midnight Whisper - English.txt"
   },
   {
-    "title": "Chương 2 - Dấu máu lấp lánh",
-    "vi": "Chương 2 - Dấu máu lấp lánh.txt",
-    "en": "02 - Sparkling Blood - English.txt"
+    "title": "Chương 2 - Giọng nói qua lỗ thông gió",
+    "vi": "Chương 2 - Giọng nói qua lỗ thông gió.txt",
+    "en": "02 - The Voice Through the Vent - English.txt"
   },
   {
-    "title": "Chương 3 - Đối mặt với kỳ lân",
-    "vi": "Chương 3 - Đối mặt với kỳ lân.txt",
-    "en": "03 - Face to Face with the Unicorn - English.txt"
+    "title": "Chương 3 - Điều không được nhắc đến",
+    "vi": "Chương 3 - Điều không được nhắc đến.txt",
+    "en": "03 - The Forbidden Subject - English.txt"
+  },
+  {
+    "title": "Chương 4 - Vương quốc bí mật",
+    "vi": "Chương 4 - Vương quốc bí mật.txt",
+    "en": "04 - The Secret Kingdoms - English.txt"
+  },
+  {
+    "title": "Chương 5 - Điều ước về tuyết",
+    "vi": "Chương 5 - Điều ước về tuyết.txt",
+    "en": "05 - A Wish to See Snow - English.txt"
+  },
+  {
+    "title": "Chương 6 - Sau lời kể",
+    "vi": "Chương 6 - Sau lời kể.txt",
+    "en": "06 - After the Story - English.txt"
   }
 ]
-CHAPTERS_ROOT=ROOT/"books"/"unicorn"/"chapters"
+CHAPTERS_ROOT=ROOT/"books"/"air-vent"/"chapters"
 STEP=0
 
 def run(args, check=True, binary=False):
@@ -253,10 +268,10 @@ def automate():
             if not (CHAPTERS_ROOT/lang/filename).exists():
                 raise FileNotFoundError(CHAPTERS_ROOT/lang/filename)
     subprocess.run(["bash",str(ROOT/"scripts"/"build_share_sink.sh")],check=True,timeout=120)
-    target="/sdcard/Download/ebooks-unicorn"
+    target="/sdcard/Download/ebooks-air-vent"
     shell(f"mkdir -p {target}")
     stage_chapter(0,target)
-    cover=ROOT/"books"/"unicorn"/"art"/"cover.jpg"
+    cover=ROOT/"books"/"air-vent"/"art"/"cover.jpg"
     assert cover.exists(),str(cover)
     run(["push",str(cover),target+"/cover.jpg"])
     shell('am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "file://'+target+'/cover.jpg"')
@@ -392,7 +407,7 @@ def automate():
             return False
         print("NATIVE_COVER_IMAGE_SELECTED",flush=True)
         nodes=snapshot("book_editor_cover_selected")
-        if not replace_edittext(nodes,"/name","I Found a Unicorn"):
+        if not replace_edittext(nodes,"/name","I Caught My Grandfather Talking to an Air Vent"):
             print("BOOK_TITLE_FAILED",flush=True)
             return False
         nodes=snapshot("named_book")
@@ -408,7 +423,7 @@ def automate():
         if not has(nodes,"Vietnamese"):
             print("VIETNAMESE_LANGUAGE_NOT_SELECTED",flush=True)
             return False
-        print("BOOK_METADATA: I Found a Unicorn / Anonymous",flush=True)
+        print("BOOK_METADATA: I Caught My Grandfather Talking to an Air Vent / Anonymous",flush=True)
         for index,chapter in enumerate(CHAPTERS):
             n=index+1
             if index:
@@ -496,9 +511,9 @@ def automate():
             run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
             time.sleep(2)
             nodes=snapshot("after_reader_back")
-            if has(nodes,"I Found a Unicorn"):
+            if has(nodes,"I Caught My Grandfather Talking to an Air Vent"):
                 print("BOOK_SHOWN_IN_LIBRARY_OR_READER",flush=True)
-            if click(nodes,["I Found a Unicorn","Vietnamese_hyphenated"]):
+            if click(nodes,["I Caught My Grandfather Talking to an Air Vent","Chương 1 - Lời thì thầm lúc nửa đêm"]):
                 nodes=snapshot("library_book_selected")
             # Probe native saved-book overflow menu then the dedicated
             # share control seen in previous verified UI hierarchy.
@@ -570,7 +585,7 @@ def automate():
                 encrypted=sum(bool(f.flag_bits & 1) for f in meta)
                 if meta and encrypted:
                     found+=1
-                    verified=O/"I Found a Unicorn_native.sb2"
+                    verified=O/"I Caught My Grandfather Talking to an Air Vent_native.sb2"
                     verified.write_bytes(local.read_bytes())
                     print("GENUINE_APP_GENERATED_SB2:",verified,
                           "native_sb_entries=",len(meta),"encrypted=",encrypted,flush=True)
