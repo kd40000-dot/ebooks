@@ -165,12 +165,16 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
         nodes=snapshot(prefix+"_recent_bottom")
         if click(nodes,[filename]):
             return snapshot(prefix+"_selected_at_bottom")
-        # Confirmed from native screenshot 48 (run 38318982412):
-        # After scrolling to the bottom, the last visible Recent file has
-        # row center y=1465 and the penultimate has y=1292, because the
-        # Recent chips/header scroll offscreen too. Never use pre-scroll
-        # row positions or the previous 1515/1685 guesses.
-        x,y=290,(1295 if match.group(2)=="vi" else 1465)
+        # Confirmed from actual native DocumentsUI screenshots:
+        # 8 staged files (chapter 4): last row y=1465, previous y=1295.
+        # 10 staged files (chapter 5): last row y=1640, previous y=1465.
+        # 12 staged files (chapter 6): same full nine-row viewport as 10.
+        # List scrolls its header away and supports 9 visible 173px rows.
+        chapter_number=int(match.group(1))
+        if chapter_number==4:
+            x,y=290,(1295 if match.group(2)=="vi" else 1465)
+        else:
+            x,y=290,(1465 if match.group(2)=="vi" else 1640)
         print("PICKER_SELECT_STAGED_LAST_PAIR",prefix,x,y,flush=True)
         tap_at(x,y)
         nodes=snapshot(prefix+"_selected_last_pair")
