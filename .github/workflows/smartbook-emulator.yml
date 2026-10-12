@@ -7,6 +7,7 @@ on:
       - "scripts/automate_android.py"
       - "scripts/ci_smartbook.sh"
       - "books/unicorn/**"
+      - "books/air-vent/**"
   workflow_dispatch:
 
 permissions:
@@ -15,7 +16,7 @@ permissions:
 jobs:
   run-smart-book:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - name: Create diagnostics directory
