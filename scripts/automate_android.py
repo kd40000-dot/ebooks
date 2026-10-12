@@ -152,6 +152,30 @@ def select_vietnamese(nodes):
 
 def pick_txt_from_documents_ui(nodes, filename, prefix):
     """Find the requested TXT across the entire scrollable DocumentsUI list."""
+    # The Android DocumentsUI accessibility XML becomes unreliable after the
+    # third chapter on this emulator, while screenshots show the right files
+    # plainly. Chapter files are staged IN ORDER, two at a time, by
+    # stage_chapter(), so the current pair is at the end of Recent files.
+    match=re.fullmatch(r"chapter_(\d+)_(vi|en)",prefix)
+    if match and int(match.group(1))>=4:
+        print("PICKER_BOTTOM_OF_RECENT_SELECTION",prefix,filename,flush=True)
+        for swipe_num in range(3):
+            run(["shell","input","swipe","430","1550","430","460","450"])
+            time.sleep(1)
+        nodes=snapshot(prefix+"_recent_bottom")
+        if click(nodes,[filename]):
+            return snapshot(prefix+"_selected_at_bottom")
+        # 832x1843 Android 13 picker. After reaching the list bottom,
+        # penultimate row center is y~1310 and final row is y~1480.
+        x,y=290,(1310 if match.group(2)=="vi" else 1480)
+        print("PICKER_SELECT_STAGED_LAST_PAIR",prefix,x,y,flush=True)
+        tap_at(x,y)
+        nodes=snapshot(prefix+"_selected_last_pair")
+        for wait in range(4):
+            if nodes: break
+            time.sleep(3)
+            nodes=snapshot(prefix+f"_after_direct_pick_{wait}")
+        return nodes
     # DocumentsUI often has an empty accessibility hierarchy for 1-2
     # captures after the upload activity opens. Previous code interpreted
     # that transient state as a permanently missing file and scrolled
