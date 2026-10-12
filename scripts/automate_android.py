@@ -162,6 +162,40 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
         print("PICKER_HIERARCHY_NOT_READY_WAIT",prefix,wait,flush=True)
         time.sleep(3)
         nodes=snapshot(prefix+f"_ready_wait_{wait}")
+    # Android 13 DocumentsUI sometimes displays its recent-file list while
+    # returning an empty uiautomator tree for 30+ seconds. Use the actual
+    # visible controls as a last resort instead of treating that as no file.
+    if not nodes:
+        print("PICKER_COORDINATE_RECOVERY",prefix,filename,flush=True)
+        if prefix=="chapter_4_vi":
+            # Evidence screenshot 47 in attempts 1 and 2: chapter four's
+            # Vietnamese file is the seventh Recent row at (280,1560).
+            tap_at(290,1555)
+        else:
+            # Search button & input are fixed by the tested 832x1843 emulator.
+            # Searching 05 (English) or 5 (Vietnamese) leaves just that pair
+            # of staged files at the start of the results list.
+            digits=re.search(r"(\\d+)",filename)
+            query=(digits.group(1) if digits else filename[:2])
+            tap_at(660,114)
+            tap_at(420,114)
+            run(["shell","input","text",query])
+            time.sleep(3)
+            run(["shell","input","keyevent","KEYCODE_ENTER"],check=False)
+            run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
+            time.sleep(3)
+            nodes=snapshot(prefix+"_coordinate_search_results")
+            if click(nodes,[filename]):
+                return snapshot(prefix+"_selected_coordinate_search")
+            # Queried English number uniquely matches its 0-prefixed file;
+            # queried Vietnamese chapter number shows Vietnamese first.
+            tap_at(300,510)
+        nodes=snapshot(prefix+"_selected_coordinate_fallback")
+        for retry in range(5):
+            if nodes: break
+            time.sleep(3)
+            nodes=snapshot(prefix+f"_post_select_wait_{retry}")
+        return nodes
     if click(nodes,[filename]):
         return snapshot(prefix+"_selected_recent")
     # Android DocumentsUI offers an actual Search control. Use the ASCII
