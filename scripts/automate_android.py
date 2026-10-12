@@ -199,19 +199,10 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
         print("EXACT_DOCUMENT_SELECTED",filename,flush=True)
         return page if has(page,"enter a book name") else None
 
-    # The Recent grid is scrollable; try short gestures before searching.
-    for index in range(3):
-        run(["shell","input","swipe","420","1400","420","620","350"])
-        time.sleep(1)
-        nodes=ready(snapshot(prefix+f"_recent_{index}"),"_recent")
-        if not nodes or has(nodes,"enter a book name"):
-            print("PICKER_LOST_DURING_SCROLL",filename,flush=True)
-            return None
-        if click(nodes,[filename]):
-            page=snapshot(prefix+"_selected_recent")
-            print("EXACT_DOCUMENT_SELECTED_AFTER_SCROLL",filename,flush=True)
-            return page if has(page,"enter a book name") else None
-
+    # Search FIRST after a direct match fails. Scrolling the DocumentsUI
+    # Recent grid repeatedly has closed the picker or caused empty UI dumps
+    # after chapter 3 on Android 33. All chapter filenames include an ASCII
+    # chapter number, so one-digit search safely distinguishes the files.
     search=resource(nodes,"/option_menu_search")
     if search:
         tap_at(*pos(search))
@@ -219,7 +210,7 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
         field=resource(page,"/search_src_text")
         if field is not None:
             tap_at(*pos(field))
-            m=re.search(r"(?<!\\d)(\\d{1,2})(?!\\d)",filename)
+            m=re.search(r"(?<![0-9])([0-9]{1,2})(?![0-9])",filename)
             query=m.group(1) if m else filename.split(" ")[0]
             print("SEARCH_DOCUMENTS_UI",filename,"query",query,flush=True)
             run(["shell","input","text",query])
@@ -238,6 +229,17 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
             if not nodes or has(nodes,"enter a book name"):
                 return None
 
+    # Search may be unavailable while indexing. Do a single short Recent
+    # scroll as a fallback, not multiple swipes that destabilize DocumentsUI.
+    for index in range(1):
+        if not nodes or has(nodes,"enter a book name"):
+            print("PICKER_NOT_OPEN_AFTER_SEARCH",filename,flush=True)
+            return None
+        run(["shell","input","swipe","420","1230","420","850","300"])
+        nodes=ready(snapshot(prefix+"_recent_fallback"),"_recent")
+        if nodes and click(nodes,[filename]):
+            page=snapshot(prefix+"_selected_recent")
+            return page if has(page,"enter a book name") else None
     if not click(nodes,["Show roots"]):
         print("PICKER_ROOTS_NOT_FOUND",filename,flush=True)
         return None
