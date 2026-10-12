@@ -19,14 +19,14 @@ To restore the tested code after a regression: inspect the checkpoint branch ver
 
 - Obtain the full source story in English or another source language, along with any attribution, chapter markers, formatting requirements and permission/context needed to use the text.
 - Read the entire text. Identify characters, setting, idioms, timeline, tone, unusual vocabulary, chapter turning points and paragraphs/dialogue.
-- If the supplied story is already Vietnamese, preserve it as the primary text and obtain or translate an English rendering for the attached translation. Otherwise create Vietnamese from the source and use a faithful English text for the translation (when the original is in English, retain the original).
+- If the supplied story is already Vietnamese, preserve it as the primary text and obtain or translate an English rendering for the attached translation. Otherwise create Vietnamese from the source and preserve the original English as a separate reference for factual and stylistic accuracy; the English displayed in the Smart Book is revised **after** Vietnamese is finalized, for learners.
 - Never invent author credit. The benchmark uses **Anonymous** only because the source story did not supply a verified author.
 
 ### 2. Translate into learner-friendly, natural Vietnamese
 
 - Produce complete Vietnamese text, not a synopsis. Preserve the narrative, actions, implications, character voices, register, emphases, profanity if relevant, names and story order.
 - Translate idioms **by context**, not a word-for-word English gloss. Keep Vietnamese idiomatic and consistent across the whole story.
-- Check proper names and pronouns; do not unintentionally change who says or does something. Keep the exact original English text as the aligned translation whenever possible.
+- Check proper names and pronouns; do not unintentionally change who says or does something. Keep original English as a permanent reference, then create a **learner-aligned English edition** that clarifies Vietnamese expression choices.
 - Perform a deliberate accuracy read-through. Do not lose sentences, merge unrelated plot points, or add content not found in the source.
 
 ### 3. Apply contextual Vietnamese hyphenation
@@ -38,6 +38,19 @@ The goal is to make *multi-syllable Vietnamese words and useful contextual compo
 - Use the vocabulary's **meaning in this sentence**: homographs and flexible word boundaries require human/model judgement.
 - Avoid hyphenating unrelated words, attaching punctuation to the wrong token, damaging proper names or changing word order. Preserve accents and capitalization.
 - Check compound consistency through each chapter, then scan for unnatural or overzealous joins. The 16-paragraph Unicorn benchmark has **155 hyphen connections**; that number is a property of the example, **not a quota** for new stories.
+
+### 4. Rewrite English for Vietnamese learners AFTER Vietnamese is finalized
+
+**The final natural Vietnamese text is the anchor. Do not modify it for the sake of English alignment.** Keep the original English story as an untouched reference to protect meaning and voice. Edit only the *displayed English translation* to help beginners understand which English ideas map to which Vietnamese expressions.
+
+- The objective is a **sweet spot between literal and idiomatic**: show the relationship to Vietnamese vocabulary and phrasing while sounding like natural, straightforward English. For example: `Chào mọi người trên Reddit.` → `Hello, everyone on Reddit.` rather than merely `Hello, Reddit.`
+- Prefer familiar English wording and clear subjects/objects. Where the original English uses shorthand, idioms, elliptical dialogue, or unnecessary sophistication, use simple explicit meaning when it matches Vietnamese. Keep concrete references and chronology intact.
+- Preserve every event, implication, uncertainty, voice, name and register from **both** the finalized Vietnamese and the original source. Never add invented facts to explain a word. Do not over-literalize to the point of awkward or misleading English.
+- Preserve purposeful colloquial/profane speech where the source and Vietnamese require it. Do not euphemize away intensity just because the reader is learning.
+- **Align sentences and clauses** so that Smart Book's `End of sentence` splitting produces corresponding units. Aim to keep the sentence count within each source paragraph equal across languages; verify punctuation, direct speech and abbreviation edge cases. Match meaning, not merely punctuation.
+- Do a two-direction review: Vietnamese → English checks learner word mapping; original English → revised English checks the original story's meaning. If conflict arises, flag it and seek clarification rather than silently rewriting the Vietnamese.
+- Save the original English separately as `english_original_reference.txt`. Save the learner-aligned English as `english.txt` and use **only the learner edition** for native Smart Book's Translation → Upload a file.
+- Only after English revision is finished, split both sides into corresponding numbered chapters and verify the passage counts.
 
 ### 4. Align English and Vietnamese before splitting
 
