@@ -179,75 +179,84 @@ def select_vietnamese(nodes):
     return snapshot("language_unknown")
 
 def pick_txt_from_documents_ui(nodes, filename, prefix):
-    """Find the requested TXT across the entire scrollable DocumentsUI list."""
-    if click(nodes,[filename]):
-        return snapshot(prefix+"_selected_recent")
-    # Android DocumentsUI offers an actual Search control. Use the ASCII
-    # chapter number to find a filename that is below the Recent viewport.
-    # In particular the third English text begins "03 - ".
-    search=resource(nodes,"/option_menu_search")
-    if search is not None and pos(search):
-        tap_at(*pos(search))
-        search_nodes=snapshot(prefix+"_search_open")
-        # DocumentsUI's AndroidX SearchView text box is exposed as
-        # /search_src_text; some emulator builds do not report class EditText.
-        field=resource(search_nodes,"/search_src_text")
-        edits=([field] if field is not None else
-               [n for n in search_nodes if "EditText" in (n.get("class") or "") and pos(n)])
-        if edits and pos(edits[0]):
-            tap_at(*pos(edits[0]))
-            digits=re.search(r"(?:^| )([0-9]{1,2})(?: | -)",filename)
-            query=(digits.group(1) if digits else filename[:2])
-            print("SEARCH_DOCUMENTS_UI",query,filename,flush=True)
-            run(["shell","input","text",query])
+    """Select the exact staged TXT. Never confuse a canceled picker with success."""
+    def ready(items, suffix):
+        for attempt in range(6):
+            if items and (resource(items,"/option_menu_search") or has(items,"Show roots") or has(items,filename)):
+                return items
             time.sleep(2)
-            run(["shell","input","keyevent","KEYCODE_ENTER"],check=False)
-            run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
-            nodes=snapshot(prefix+"_search_results")
-            if click(nodes,[filename]):
-                print("FOUND_DOCUMENT_VIA_SEARCH",filename,flush=True)
-                return snapshot(prefix+"_selected_search")
-        run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
-        nodes=snapshot(prefix+"_search_cancelled")
-    # As chapters accumulate, DocumentsUI shows Recent files in a list that
-    # extends past the viewport. The third English file may be below the fold.
-    # Scroll the content area before switching roots; this is more reliable
-    # than a storage-root navigation that may temporarily return empty XML.
-    for scroll in range(3):
-        run(["shell","input","swipe","430","1460","430","520","380"])
+            items=snapshot(prefix+suffix+f"_wait_{attempt}")
+            if has(items,"enter a book name"):
+                print("DOCUMENT_PICKER_CLOSED_UNEXPECTEDLY",filename,flush=True)
+                return []
+        return items
+    nodes=ready(nodes,"_initial")
+    if not nodes or has(nodes,"enter a book name"):
+        print("PICKER_NOT_READY",filename,flush=True)
+        return None
+    if click(nodes,[filename]):
+        page=snapshot(prefix+"_selected_direct")
+        print("EXACT_DOCUMENT_SELECTED",filename,flush=True)
+        return page if has(page,"enter a book name") else None
+
+    # The Recent grid is scrollable; try short gestures before searching.
+    for index in range(3):
+        run(["shell","input","swipe","420","1400","420","620","350"])
         time.sleep(1)
-        nodes=snapshot(prefix+f"_recent_scroll_{scroll}")
+        nodes=ready(snapshot(prefix+f"_recent_{index}"),"_recent")
+        if not nodes or has(nodes,"enter a book name"):
+            print("PICKER_LOST_DURING_SCROLL",filename,flush=True)
+            return None
         if click(nodes,[filename]):
-            print("SCROLLED_DOCUMENTSUI_TO_FILE",filename,scroll,flush=True)
-            return snapshot(prefix+"_selected_after_scroll")
-    # Android DocumentsUI distinguishes its indexed 'Downloads' root from the
-    # physical device-storage root. adb-pushed files may be absent in indexed
-    # Downloads but present at /sdcard/Download.
+            page=snapshot(prefix+"_selected_recent")
+            print("EXACT_DOCUMENT_SELECTED_AFTER_SCROLL",filename,flush=True)
+            return page if has(page,"enter a book name") else None
+
+    search=resource(nodes,"/option_menu_search")
+    if search:
+        tap_at(*pos(search))
+        page=snapshot(prefix+"_search_open")
+        field=resource(page,"/search_src_text")
+        if field is not None:
+            tap_at(*pos(field))
+            m=re.search(r"(?<!\\d)(\\d{1,2})(?!\\d)",filename)
+            query=m.group(1) if m else filename.split(" ")[0]
+            print("SEARCH_DOCUMENTS_UI",filename,"query",query,flush=True)
+            run(["shell","input","text",query])
+            time.sleep(3)
+            # Do not send ENTER/BACK: they previously closed the file picker.
+            for q in range(4):
+                results=snapshot(prefix+f"_search_live_{q}")
+                if click(results,[filename]):
+                    page=snapshot(prefix+"_selected_search")
+                    print("EXACT_DOCUMENT_SELECTED_VIA_SEARCH",filename,flush=True)
+                    return page if has(page,"enter a book name") else None
+                time.sleep(2)
+            # One Back only closes SearchView; verify DocumentsUI survived.
+            run(["shell","input","keyevent","KEYCODE_BACK"],check=False)
+            nodes=ready(snapshot(prefix+"_search_cancelled"),"_search_back")
+            if not nodes or has(nodes,"enter a book name"):
+                return None
+
     if not click(nodes,["Show roots"]):
-        print("PICKER_ROOTS_UNAVAILABLE",flush=True)
-        return nodes
-    nodes=snapshot(prefix+"_roots")
+        print("PICKER_ROOTS_NOT_FOUND",filename,flush=True)
+        return None
+    nodes=ready(snapshot(prefix+"_roots"),"_roots")
     if not click(nodes,["Android SDK built for x86_64","Internal storage","Internal shared storage","sdk_gphone"]):
-        print("PHYSICAL_STORAGE_ROOT_NOT_FOUND",flush=True)
-        return nodes
-    nodes=snapshot(prefix+"_device_storage")
-    for retry in range(3):
-        if nodes: break
-        time.sleep(3)
-        nodes=snapshot(prefix+f"_storage_loading_{retry}")
-    if not click(nodes,["Download"]):
-        print("PHYSICAL_DOWNLOAD_FOLDER_NOT_FOUND",flush=True)
-        return nodes
-    nodes=snapshot(prefix+"_physical_download")
-    if not click(nodes,["ebooks-unicorn"]):
-        print("STAGED_FOLDER_NOT_FOUND_IN_DEVICE_STORAGE",flush=True)
-        return nodes
-    nodes=snapshot(prefix+"_physical_folder")
-    if not click(nodes,[filename]):
-        print("STAGED_FILENAME_NOT_FOUND_IN_DEVICE_STORAGE",filename,flush=True)
-        return nodes
-    print("DOCUMENT_PICKED_FROM_PHYSICAL_STORAGE",filename,flush=True)
-    return snapshot(prefix+"_selected")
+        print("PICKER_PHYSICAL_STORAGE_NOT_FOUND",filename,flush=True)
+        return None
+    nodes=ready(snapshot(prefix+"_device_storage"),"_storage")
+    for directory in ("Download","ebooks-air-vent"):
+        if not click(nodes,[directory]):
+            print("PICKER_FOLDER_NOT_FOUND",directory,flush=True)
+            return None
+        nodes=ready(snapshot(prefix+"_folder_"+directory),"_folder")
+    if click(nodes,[filename]):
+        page=snapshot(prefix+"_selected_from_folder")
+        print("EXACT_DOCUMENT_SELECTED_IN_STORAGE",filename,flush=True)
+        return page if has(page,"enter a book name") else None
+    print("STAGED_FILE_NOT_FOUND",filename,flush=True)
+    return None
 
 def stage_chapter(index,target):
     book=CHAPTERS[index]
@@ -440,6 +449,9 @@ def automate():
                 return False
             nodes=snapshot(f"chapter_{n}_vi_picker")
             nodes=pick_txt_from_documents_ui(nodes,chapter["vi"],f"chapter_{n}_vi")
+            if nodes is None:
+                print("VIETNAMESE_PICKER_SELECTION_FAILED",n,flush=True)
+                return False
             if not has(nodes,chapter["title"]):
                 print("NUMBERED_CHAPTER_NOT_PRESENT",n,chapter["title"],flush=True)
                 return False
@@ -459,8 +471,12 @@ def automate():
                 return False
             nodes=snapshot(f"chapter_{n}_en_picker")
             nodes=pick_txt_from_documents_ui(nodes,chapter["en"],f"chapter_{n}_en")
-            if not any((x.get("resource-id") or "").endswith("/target") for x in nodes):
-                print("ENGLISH_TRANSLATION_TARGET_NOT_CREATED",n,flush=True)
+            if nodes is None:
+                print("ENGLISH_PICKER_SELECTION_FAILED",n,flush=True)
+                return False
+            attached=sum((x.get("resource-id") or "").endswith("/target") for x in nodes)
+            if attached < n:
+                print("ENGLISH_TRANSLATION_TARGET_NOT_CREATED",n,"targets=",attached,flush=True)
                 return False
             print("BILINGUAL_CHAPTER_READY",n,chapter["title"],flush=True)
             nodes=snapshot(f"chapter_{n}_bilingual_ready")
