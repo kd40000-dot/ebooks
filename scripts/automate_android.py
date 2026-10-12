@@ -165,9 +165,12 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
         nodes=snapshot(prefix+"_recent_bottom")
         if click(nodes,[filename]):
             return snapshot(prefix+"_selected_at_bottom")
-        # 832x1843 Android 13 picker. After reaching the list bottom,
-        # penultimate row center is y~1310 and final row is y~1480.
-        x,y=290,(1310 if match.group(2)=="vi" else 1480)
+        # On the fixed-size 832x1843 emulator, each Recent item occupies
+        # ~173 px. The last staged file is the last Recent item, centred
+        # at ~1690 after scrolling to the bottom. The preceding Vietnamese
+        # file is centred at ~1515. The old y=1310/y=1480 tapped previous
+        # chapters and was responsible for the incorrect fifth import.
+        x,y=290,(1515 if match.group(2)=="vi" else 1685)
         print("PICKER_SELECT_STAGED_LAST_PAIR",prefix,x,y,flush=True)
         tap_at(x,y)
         nodes=snapshot(prefix+"_selected_last_pair")
