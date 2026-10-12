@@ -1,0 +1,56 @@
+name: Archive learner-friendly English SB2 candidate
+
+on:
+  push:
+    paths:
+      - ".github/workflows/archive-unicorn-learner-English.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Retrieve exact official Smart Book output
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/kd40000-dot/ebooks/actions/artifacts/11729247929/zip" \
+            -o /tmp/learner-English-native-export.zip
+          unzip -t /tmp/learner-English-native-export.zip >/dev/null
+          mkdir -p "checkpoints/smartbook-bilingual-v2-learner-english"
+          unzip -p /tmp/learner-English-native-export.zip \
+            "artifacts/I Found a Unicorn_native.sb2" \
+            > "checkpoints/smartbook-bilingual-v2-learner-english/I Found a Unicorn - Learner-Friendly English - Illustrated Cover.sb2"
+          file="checkpoints/smartbook-bilingual-v2-learner-english/I Found a Unicorn - Learner-Friendly English - Illustrated Cover.sb2"
+          test "$(stat -c %s "$file")" = 106454
+          echo "97a9af5c76e1f87cc32bbf1511f9dd3d9a13a28f8217c50c284f035d7794252a  $file" | sha256sum -c -
+          python3 scripts/verify_native_sb2.py "$file" --chapters 3
+          python3 - "$file" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              covers=[i for i in z.infolist() if i.filename.lower().endswith('.jpg') and i.flag_bits&1]
+              assert len(covers)==1, f"Expected exactly one encrypted cover JPG; found {len(covers)}"
+              print("Cover entry confirmed:",covers[0].filename)
+          PY
+      - name: Store candidate separately from confirmed v1 checkpoint
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "checkpoints/smartbook-bilingual-v2-learner-english/"
+          if ! git diff --staged --quiet; then
+            git commit -m "Archive candidate native SB2 with learner-aligned English and cover"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          else
+            echo "SB2 candidate already archived"
+          fi
