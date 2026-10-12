@@ -175,7 +175,7 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
             # Search button & input are fixed by the tested 832x1843 emulator.
             # Searching 05 (English) or 5 (Vietnamese) leaves just that pair
             # of staged files at the start of the results list.
-            digits=re.search(r"(\\d+)",filename)
+            digits=re.search(r"(\d+)",filename)
             query=(digits.group(1) if digits else filename[:2])
             tap_at(660,114)
             tap_at(420,114)
