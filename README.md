@@ -1,17 +1,19 @@
 # Bilingual Smart Books — working production checkpoint
 
-This repository contains a **proven native KursX Smart Book (.sb2) workflow** for converting a story into a Vietnamese-primary, English-translation ebook, using context-sensitive Vietnamese hyphenation. The three-chapter *I Found a Unicorn* edition has been exported by the actual Android Smart Book app and the user confirmed that edition works on their Fairphone 6 / LineageOS.
+This repository contains a **proven native KursX Smart Book (.sb2) workflow** for converting a story into a Vietnamese-primary, English-translation ebook, using context-sensitive Vietnamese hyphenation. The three-chapter *I Found a Unicorn* edition has been exported by the actual Android Smart Book app and the user confirmed that baseline edition works on their Fairphone 6 / LineageOS. A newer learner-aligned English + native-cover edition was exported successfully in [run 38210064617](https://github.com/kd40000-dot/ebooks/actions/runs/38210064617) and still requires separate-device import confirmation.
 
 **START HERE:** [Full reusable method](docs/SMARTBOOK_WORKING_METHOD.md) · [Checkpoint source branch](https://github.com/kd40000-dot/ebooks/tree/checkpoint/smartbook-bilingual-v1-working) · [Successful export run](https://github.com/kd40000-dot/ebooks/actions/runs/38099039411)
 
 ## Proven finished example
 
 - Title: **I Found a Unicorn**; author: **Anonymous**
-- Vietnamese primary text with meaningful phrase hyphenation; English as attached translation
+- Vietnamese primary text with meaningful phrase hyphenation; **learner-aligned English** as attached translation (revised only after Vietnamese is finalized)
 - Book separator setting: **End of sentence**
 - Three numbered chapters with readable Vietnamese titles and **no underscores** in displayed names
-- Original source: `books/unicorn/vietnamese_hyphenated.txt` and `books/unicorn/english.txt` — 16 aligned source passages, unchanged through the three-chapter split
+- Source files: `books/unicorn/vietnamese_hyphenated.txt` (unchanged), `books/unicorn/english_original_reference.txt` (original English), and `books/unicorn/english.txt` (beginner-friendly learner-aligned English), with 16 aligned passages split into three chapters
 - Chapter files: `books/unicorn/chapters/vi/` and `books/unicorn/chapters/en/`
+- **Spoiler-free AI-generated cover:** `books/unicorn/art/cover.jpg`, selected through Smart Book's native image picker; chapter-head image embedding in `.sb2` is still unverified
+- [English alignment policy and examples](docs/BEGINNER_ENGLISH_ALIGNMENT.md): natural Vietnamese is frozen first, then English is revised to clarify each Vietnamese expression without changing the story's meaning
 - GitHub Actions workflow: [.github/workflows/smartbook-emulator.yml](.github/workflows/smartbook-emulator.yml)
 - Native app automation: [scripts/automate_android.py](scripts/automate_android.py)
 - Binary checkpoint: `checkpoints/smartbook-bilingual-v1/I Found a Unicorn - Three Chapters.sb2` (archived by a separate one-time workflow; see checkpoint method document for verification)
