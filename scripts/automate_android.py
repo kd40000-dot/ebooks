@@ -152,6 +152,16 @@ def select_vietnamese(nodes):
 
 def pick_txt_from_documents_ui(nodes, filename, prefix):
     """Find the requested TXT across the entire scrollable DocumentsUI list."""
+    # DocumentsUI often has an empty accessibility hierarchy for 1-2
+    # captures after the upload activity opens. Previous code interpreted
+    # that transient state as a permanently missing file and scrolled
+    # past the file without ever using Search.
+    for wait in range(6):
+        if nodes and (resource(nodes,"/option_menu_search") is not None or has(nodes,filename)):
+            break
+        print("PICKER_HIERARCHY_NOT_READY_WAIT",prefix,wait,flush=True)
+        time.sleep(3)
+        nodes=snapshot(prefix+f"_ready_wait_{wait}")
     if click(nodes,[filename]):
         return snapshot(prefix+"_selected_recent")
     # Android DocumentsUI offers an actual Search control. Use the ASCII
