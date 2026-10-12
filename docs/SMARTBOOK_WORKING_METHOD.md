@@ -67,6 +67,14 @@ The goal is to make *multi-syllable Vietnamese words and useful contextual compo
 - Place aligned chapter TXT files in a book-specific directory analogous to `books/unicorn/chapters/vi/` and `.../en/`. Keep language-specific files independently readable and fully paired.
 - Filenames may contain accents and spaces. Android Smart Book itself can normalize internal archive filenames to underscores; this is **not** the user-visible title.
 
+### 5a. Generate and attach a spoiler-free native cover
+
+- After reading the complete story and choosing chapter themes, **automatically generate a polished, spoiler-free book cover**. Keep the displayed title and author legible when reduced to a small Smart Book library thumbnail.
+- Match the story's mood and genre without revealing its ending or important twists. Save an appropriately compressed JPEG (benchmark: `books/unicorn/art/cover.jpg`).
+- The native creation screen has a `com.kursx.smartbook:id/thumbnail_layout` image picker. Stage the JPEG on Android and **select it before saving**. The current illustrated workflow uses `scripts/automate_android.py` to do this through the real Android image chooser.
+- In native export, check that an **encrypted JPG entry** accompanies the encrypted metadata and chapter entries. The `.sb2` should be generated unchanged by Smart Book; do not inject images by editing its ZIP container.
+- **Do not insert chapter-head images into `.sb2` by default:** the current native chapter creation workflow imports TXT and has not proven that chapter images survive while bilingual sentence translation continues to work. Experiment only in a separate branch and preserve the known-working checkpoint.
+
 ### 6. Configure the tested native Android automation
 
 Currently this is a **known-good book-specific emulator pipeline**, not a fully configurable ebook SaaS. For each new book:
