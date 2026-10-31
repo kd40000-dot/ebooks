@@ -43,6 +43,17 @@ To restore the tested code after a regression: inspect the checkpoint branch ver
 
 Earlier Unicorn checkpoint files remain **unchanged historical examples**, not proof that all learner-useful groups were marked. In particular, its unhyphenated `chúng tôi` and `ông ấy` should be `chúng-tôi` and `ông-ấy` in a future revised edition. Do **not** silently overwrite a validated native export or re-export an existing book unless requested.
 
+### 3a. Anki flashcards: retain semantic grouping without visible hyphens
+
+When generating Anki flashcards from learner-hyphenated Vietnamese Smart Books, **use the hyphenated source to decide which whole word/expression becomes a single typed-answer target**, but render all Vietnamese in the card's displayed context and typed-answer field with **ordinary Vietnamese spaces**, not learner hyphens.
+
+- Example: ebook `ông-ấy` → one cloze target whose full correct typed answer is `ông ấy` (not two separate one-word cards and not `ông-ấy`).
+- Example: ebook `sự-khác-biệt` → one cloze target whose correct typed answer is `sự khác biệt`.
+- Also dehyphenate other visible Vietnamese in the sentence context (e.g. `nhà-tù` → `nhà tù`), so the cards look like normally written Vietnamese.
+- Preserve English clues, original English punctuation, HTML markup, card-template scripts, and note identifiers. The convention applies to Vietnamese study text, not arbitrary English hyphens or punctuation.
+- For existing decks, preserve the same Anki note model, GUIDs, deck hierarchy, and typed-answer card template when revising visible text. Verify that the multiword expression remains a **single typed field** and that no learner hyphens remain in Vietnamese answers.
+- **Keep the Smart Book ebook text unchanged and learner-hyphenated**; this normal-spacing convention applies only to the Anki study deck.
+
 ### 4. Rewrite English for Vietnamese learners AFTER Vietnamese is finalized
 
 **The final natural Vietnamese text is the anchor. Do not modify it for the sake of English alignment.** Keep the original English story as an untouched reference to protect meaning and voice. Edit only the *displayed English translation* to help beginners understand which English ideas map to which Vietnamese expressions.
