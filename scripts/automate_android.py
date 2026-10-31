@@ -7,7 +7,7 @@ D=ROOT/"debug"
 D.mkdir(exist_ok=True)
 O=ROOT/"artifacts"
 O.mkdir(exist_ok=True)
-BOOK_ROOT=ROOT/"books"/"air-vent"
+BOOK_ROOT=ROOT/"books"/"empty-prison"
 MANIFEST=json.loads((BOOK_ROOT/"manifest.json").read_text(encoding="utf-8"))
 CHAPTERS=MANIFEST["chapters"]
 CHAPTERS_ROOT=BOOK_ROOT/"chapters"
@@ -286,7 +286,7 @@ def pick_txt_from_documents_ui(nodes, filename, prefix):
         print("PHYSICAL_DOWNLOAD_FOLDER_NOT_FOUND",flush=True)
         return nodes
     nodes=snapshot(prefix+"_physical_download")
-    if not click(nodes,["ebooks-air-vent"]):
+    if not click(nodes,["ebooks-empty-prison"]):
         print("STAGED_FOLDER_NOT_FOUND_IN_DEVICE_STORAGE",flush=True)
         return nodes
     nodes=snapshot(prefix+"_physical_folder")
@@ -315,7 +315,7 @@ def automate():
             if not (CHAPTERS_ROOT/lang/filename).exists():
                 raise FileNotFoundError(CHAPTERS_ROOT/lang/filename)
     subprocess.run(["bash",str(ROOT/"scripts"/"build_share_sink.sh")],check=True,timeout=120)
-    target="/sdcard/Download/ebooks-air-vent"
+    target="/sdcard/Download/ebooks-empty-prison"
     shell(f"mkdir -p {target}")
     stage_chapter(0,target)
     cover=BOOK_ROOT/"art"/"cover.jpg"
@@ -632,7 +632,7 @@ def automate():
                 encrypted=sum(bool(f.flag_bits & 1) for f in meta)
                 if meta and encrypted:
                     found+=1
-                    verified=O/"I Caught My Grandfather Talking to an Air Vent_native.sb2"
+                    verified=O/"An Empty Prison_native.sb2"
                     verified.write_bytes(local.read_bytes())
                     print("GENUINE_APP_GENERATED_SB2:",verified,
                           "native_sb_entries=",len(meta),"encrypted=",encrypted,flush=True)

@@ -8,6 +8,7 @@ on:
       - "scripts/ci_smartbook.sh"
       - "books/unicorn/**"
       - "books/air-vent/**"
+      - "books/empty-prison/**"
   workflow_dispatch:
 
 permissions:
