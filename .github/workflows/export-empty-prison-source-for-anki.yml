@@ -1,0 +1,23 @@
+name: Export Empty Prison learning source
+on:
+  push:
+    branches:
+      - production/empty-prison-native-export
+    paths:
+      - .github/workflows/export-empty-prison-source-for-anki.yml
+  workflow_dispatch:
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: empty-prison-text-for-anki
+          path: |
+            books/empty-prison/vietnamese_hyphenated.txt
+            books/empty-prison/english_learner_aligned.txt
+            books/empty-prison/manifest.json
+            books/empty-prison/chapters/vi/
+            books/empty-prison/chapters/en/
+          retention-days: 7
